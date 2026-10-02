@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Roguelike PoC</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0d12; font-family: system-ui, sans-serif; user-select: none; }
+      canvas { display: block; }
+      #hud, #world-ui { position: fixed; inset: 0; pointer-events: none; color: #e8e6df; }
+      #world-ui { overflow: hidden; }
+      #info { position: absolute; top: 12px; left: 12px; font-size: 13px; line-height: 1.5; text-shadow: 0 1px 2px #000; }
+      #info kbd { background: #ffffff22; border-radius: 3px; padding: 0 4px; }
+      #banner { position: absolute; top: 30%; width: 100%; text-align: center; font-size: 28px; letter-spacing: 2px; opacity: 0; transition: opacity 400ms; text-shadow: 0 2px 6px #000; }
+
+      /* Bottom-center action bar */
+      #bottom { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 360px; }
+      .bar { height: 10px; background: #00000088; border: 1px solid #ffffff33; border-radius: 3px; margin-top: 6px; overflow: hidden; position: relative; }
+      .bar > div { height: 100%; width: 100%; transition: width 80ms linear; }
+      .bar > span { position: absolute; inset: 0; font-size: 10px; line-height: 10px; text-align: center; text-shadow: 0 1px 1px #000; }
+      #hp { height: 16px; }
+      #hp > div { background: linear-gradient(#d9443b, #9c2a23); }
+      #hp > span { font-size: 11px; line-height: 16px; }
+      #endurance > div { background: #e8c547; }
+      #skills { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+      .skill { position: relative; width: 56px; height: 56px; border-radius: 6px; background: #1b1e26; border: 2px solid #ffffff30; overflow: hidden; display: grid; place-items: center; font-size: 24px; }
+      .skill .cd { position: absolute; left: 0; right: 0; bottom: 0; background: #000000b0; }
+      .skill .cdtext { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 600; text-shadow: 0 1px 2px #000; }
+      .skill .key { position: absolute; top: 2px; left: 4px; font-size: 10px; opacity: 0.8; }
+      .skill.casting { border-color: #fff; }
+      #castbar { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); width: 220px; display: none; }
+      #castbar > .bar > div { background: #9fd7ff; transition: none; }
+      #castbar > .name { text-align: center; font-size: 12px; text-shadow: 0 1px 2px #000; }
+      #error { position: absolute; bottom: 190px; width: 100%; text-align: center; color: #ff6b5e; font-size: 15px; text-shadow: 0 1px 2px #000; }
+
+      /* Target frame */
+      #target { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 260px; text-align: center; font-size: 13px; text-shadow: 0 1px 2px #000; display: none; }
+      #target .bar { height: 12px; }
+      #target .bar > div { background: #c23a31; }
+
+      /* World-space UI */
+      .plate { position: absolute; left: 0; top: 0; width: 70px; text-align: center; font-size: 10px; text-shadow: 0 1px 2px #000; will-change: transform; }
+      .plate-bar { height: 5px; background: #000a; border: 1px solid #0008; margin-top: 1px; }
+      .plate-bar > div { height: 100%; background: #d6453a; }
+      .plate.targeted span { color: #ffe066; }
+      .ftext { position: absolute; left: 0; top: 0; font-weight: 800; font-size: 20px; text-shadow: 0 2px 3px #000; will-change: transform, opacity; white-space: nowrap; }
+      .ftext.damage { color: #fff; }
+      .ftext.hurt { color: #ff5a4a; }
+      .ftext.heal { color: #6ee07a; }
+      .ftext.evade { color: #ffe066; font-size: 16px; }
+      .ftext.crit { color: #ffcc33; font-size: 26px; }
+      .ftext.burn { color: #ff8a3d; font-size: 14px; }
+      .ftext.combo { color: #ffe27a; font-size: 18px; letter-spacing: 1px; }
+      .plate-status { font-size: 11px; line-height: 12px; min-height: 12px; }
+      .plate-status sub { font-size: 8px; }
+
+      /* Player boons + combo toast */
+      #buffs { display: flex; gap: 4px; justify-content: center; min-height: 26px; margin-bottom: 4px; }
+      .buff { position: relative; width: 24px; height: 24px; border-radius: 4px; background: #0009; border: 1px solid; display: grid; place-items: center; font-size: 13px; }
+      .buff b { position: absolute; right: -3px; bottom: -4px; font-size: 9px; background: #000c; border-radius: 3px; padding: 0 2px; }
+      .buff i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: currentColor; }
+      #combo-toast { position: absolute; top: 22%; width: 100%; text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 6px #000; opacity: 0; transition: opacity 250ms; }
+
+      /* Owned boons (bottom-left) */
+      #boons { position: absolute; left: 12px; bottom: 20px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 260px; pointer-events: auto; }
+      .boon-chip { position: relative; width: 30px; height: 30px; border-radius: 5px; background: #1b1e26; border: 2px solid; display: grid; place-items: center; font-size: 15px; }
+      .boon-chip b { position: absolute; right: -3px; bottom: -4px; font-size: 10px; background: #000c; border-radius: 3px; padding: 0 2px; }
+
+      /* Full-screen menus (reward draft, class select) */
+      .overlay { position: fixed; inset: 0; display: none; place-items: center; background: radial-gradient(#0b0d12cc, #000e); pointer-events: auto; color: #e8e6df; overflow-y: auto; padding: 24px 0; box-sizing: border-box; }
+      .overlay.open { display: grid; }
+      .overlay h2 { margin: 0 0 4px; text-align: center; letter-spacing: 3px; font-weight: 600; }
+      .overlay .sub { text-align: center; opacity: 0.7; font-size: 13px; margin-bottom: 22px; }
+      .cards { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; padding: 0 16px; }
+      #class-select .card { width: 220px; min-height: 280px; padding-bottom: 64px; }
+      .card .role { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--c); margin-bottom: 10px; }
+      .card .meta { font-size: 11px; opacity: 0.7; margin-top: 10px; }
+      .card .kit { position: absolute; bottom: 14px; left: 0; right: 0; display: flex; justify-content: center; gap: 4px; }
+      .card .kit span { width: 30px; height: 30px; border-radius: 5px; background: #0006; display: grid; place-items: center; font-size: 16px; }
+      .card { width: 190px; min-height: 230px; box-sizing: border-box; padding: 18px 14px 14px; border-radius: 10px; background: linear-gradient(#232734, #15171e); border: 2px solid; cursor: pointer; text-align: center; transition: transform 120ms, box-shadow 120ms; position: relative; }
+      .card:hover, .card.hot { transform: translateY(-6px); box-shadow: 0 10px 30px -8px var(--c); }
+      .card .icon { font-size: 44px; margin: 6px 0 10px; }
+      .card .name { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+      .card .rarity { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--c); margin-bottom: 10px; }
+      .card .desc { font-size: 13px; line-height: 1.4; opacity: 0.9; }
+      .card .stacks { position: absolute; bottom: 10px; left: 0; right: 0; font-size: 11px; opacity: 0.6; }
+      .card .hotkey { position: absolute; top: 8px; left: 10px; font-size: 11px; opacity: 0.6; }
+      /* Loot */
+      .loot-label { position: absolute; left: 0; top: 0; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 1px 5px; background: #000a; border-radius: 3px; will-change: transform; }
+      #prompt { position: absolute; bottom: 205px; width: 100%; text-align: center; font-size: 15px; text-shadow: 0 1px 2px #000; }
+      #prompt kbd { background: #ffffff30; border-radius: 3px; padding: 1px 6px; }
+      #loot-feed { position: absolute; right: 14px; bottom: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-size: 12px; text-shadow: 0 1px 2px #000; }
+      #loot-feed div { background: #0009; padding: 2px 8px; border-radius: 3px; transition: opacity 600ms; }
+      .skill.potion { color: #ff6b5e; }
+      .skill.potion .key { opacity: 0.9; }
+      .skill.potion b { position: absolute; right: 4px; bottom: 2px; font-size: 12px; color: #fff; }
+
+      /* Pause / inventory */
+      .pause-panel { width: min(980px, calc(100vw - 32px)); background: #12141bf2; border: 1px solid #ffffff22; border-radius: 12px; padding: 20px 22px; box-sizing: border-box; }
+      .pause-cols { display: grid; grid-template-columns: 220px 1fr 260px; gap: 22px; }
+      .pause-cols h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; font-weight: 600; }
+      .stat-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; border-bottom: 1px solid #ffffff10; }
+      .stat-row small { opacity: 0.6; font-weight: 400; }
+      #equip-slots { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+      .equip-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+      .equip-row i { opacity: 0.4; }
+      #bag-grid { display: grid; grid-template-columns: repeat(5, 48px); gap: 6px; }
+      .islot { position: relative; width: 48px; height: 48px; border-radius: 6px; border: 2px solid #ffffff25; background: #1b1e26; display: grid; place-items: center; font-size: 22px; cursor: pointer; box-sizing: border-box; }
+      .islot:hover { background: #262a35; }
+      .islot.empty { cursor: default; }
+      .islot .ph { opacity: 0.25; }
+      .islot b { position: absolute; right: 3px; bottom: 1px; font-size: 11px; }
+      #item-details { font-size: 13px; line-height: 1.5; min-height: 200px; }
+      .d-name { font-weight: 700; font-size: 15px; }
+      .d-meta { opacity: 0.6; font-size: 12px; margin-bottom: 8px; }
+      .d-line.implicit { opacity: 0.75; font-style: italic; }
+      .d-line.up { color: #6ee07a; }
+      .d-line.down { color: #ff6b5e; }
+      .d-sub { margin-top: 10px; font-size: 12px; opacity: 0.7; }
+      .d-hint { margin-top: 12px; font-size: 11px; opacity: 0.5; }
+      .muted { opacity: 0.5; }
+      .pause-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
+      .pause-buttons button { background: #2a2f3c; color: #e8e6df; border: 1px solid #ffffff30; border-radius: 6px; padding: 8px 18px; font: inherit; cursor: pointer; }
+      .pause-buttons button:hover { background: #363c4c; }
+      #abandon-btn { color: #ff8a80; }
+      /* Pause tabs: skills & traits */
+      .tabs { display: flex; gap: 6px; justify-content: center; margin: 4px 0 14px; }
+      .tabs button { background: #1b1e26; color: #e8e6df; border: 1px solid #ffffff25; border-radius: 6px; padding: 6px 16px; font: inherit; cursor: pointer; }
+      .tabs button small { opacity: 0.5; margin-left: 4px; }
+      .tabs button.active { background: #2f6f8a; border-color: #7fe3ff66; }
+      .pause-panel { max-height: calc(100vh - 48px); overflow-y: auto; }
+      #loadout-row { display: flex; gap: 8px; justify-content: center; margin: 4px 0 16px; flex-wrap: wrap; }
+      .lslot { width: 120px; padding: 8px; border-radius: 8px; background: #1b1e26; border: 2px solid #ffffff25; cursor: pointer; text-align: center; font-size: 12px; }
+      .lslot .ic { font-size: 24px; display: block; }
+      .lslot .k { font-size: 10px; opacity: 0.6; }
+      .lslot.sel { border-color: #7fe3ff; box-shadow: 0 0 12px -2px #7fe3ff; }
+      .skills-cols { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
+      #skill-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; align-content: start; }
+      .scard { background: #1b1e26; border: 1px solid #ffffff1a; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 12px; position: relative; }
+      .scard:hover { background: #262a35; }
+      .scard.equipped { border-color: #7fe3ff66; }
+      .scard .top { display: flex; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; }
+      .scard .top .ic { font-size: 18px; }
+      .scard .slotno { position: absolute; top: 6px; right: 8px; font-size: 10px; color: #7fe3ff; }
+      .scard .meta { opacity: 0.6; margin: 3px 0; }
+      .chip { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin: 2px 3px 0 0; border: 1px solid; }
+      #combo-ref table { border-collapse: collapse; font-size: 11px; width: 100%; }
+      #combo-ref th, #combo-ref td { border: 1px solid #ffffff15; padding: 4px; text-align: center; }
+      #combo-ref td { cursor: help; }
+      #combo-ref .yours { background: #ffffff10; font-weight: 700; }
+      #combo-ref .legend { font-size: 11px; opacity: 0.7; margin-top: 8px; line-height: 1.5; }
+      .tier { display: grid; grid-template-columns: 110px repeat(3, 1fr); gap: 8px; align-items: stretch; margin-bottom: 10px; }
+      .tier .tname { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.6; align-self: center; }
+      .tcard { background: #1b1e26; border: 2px solid #ffffff1a; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 12px; }
+      .tcard:hover { background: #262a35; }
+      .tcard.sel { border-color: #ffd24a; box-shadow: 0 0 12px -4px #ffd24a; }
+      .tcard .top { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+      @media (max-width: 860px) {
+        .skills-cols { grid-template-columns: 1fr; }
+        .tier { grid-template-columns: 1fr; }
+      }
+
+      /* Meta progression */
+      .shards { color: #7fe3ff; font-weight: 700; }
+      .meta-panel { width: min(900px, calc(100vw - 32px)); background: #12141bf2; border: 1px solid #ffffff22; border-radius: 12px; padding: 20px 22px; box-sizing: border-box; }
+      .meta-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+      .meta-head h2 { margin: 0; }
+      .meta-head .muted { font-size: 12px; }
+      #upgrade-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+      .upg { background: #1b1e26; border: 1px solid #ffffff1a; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+      .upg.maxed { border-color: #ffd24a66; }
+      .upg-top { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+      .upg-top .ic { font-size: 20px; }
+      .pips { display: flex; gap: 3px; margin: 2px 0; }
+      .pips i { width: 12px; height: 5px; border-radius: 2px; background: #ffffff20; }
+      .pips i.on { background: #7fe3ff; }
+      .upg .eff { font-size: 12px; opacity: 0.85; min-height: 30px; }
+      .upg .eff b { color: #6ee07a; font-weight: 600; }
+      .upg button, .meta-buttons button { background: #2a2f3c; color: #e8e6df; border: 1px solid #ffffff30; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+      .upg button:hover:not(:disabled), .meta-buttons button:hover { background: #363c4c; }
+      .upg button:disabled { opacity: 0.4; cursor: default; }
+      .meta-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+      .meta-buttons .primary { background: #2f6f8a; border-color: #7fe3ff66; }
+      #summary-lines { margin: 10px auto 0; max-width: 360px; font-size: 14px; }
+      #summary-lines .stat-row b { color: #7fe3ff; }
+      #summary-lines .total { border-top: 1px solid #ffffff40; margin-top: 4px; padding-top: 6px; font-size: 16px; }
+      #class-meta { text-align: center; margin-top: 18px; display: flex; justify-content: center; gap: 12px; align-items: center; font-size: 14px; }
+      #upgrades { z-index: 5; }
+
+      @media (max-width: 860px) {
+        .pause-cols { grid-template-columns: 1fr; }
+        #bag-grid { grid-template-columns: repeat(5, 44px); }
+        .islot { width: 44px; height: 44px; }
+      }
+
+      @media (max-width: 860px) {
+        .cards { gap: 10px; }
+        .card { width: 150px; min-height: 180px; padding: 14px 10px 26px; }
+        #class-select .card { width: 200px; min-height: 240px; padding-bottom: 56px; }
+        .card .icon { font-size: 32px; margin: 2px 0 6px; }
+        .card .name { font-size: 14px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading" style="position:fixed;inset:0;display:grid;place-items:center;color:#e8e6df;font-size:18px;letter-spacing:2px;z-index:10;background:#0b0d12">
+      <div>Loading <span>0%</span></div>
+    </div>
+    <div id="world-ui"></div>
+    <div id="hud">
+      <div id="info"></div>
+      <div id="banner"></div>
+      <div id="target"><div class="name"></div><div class="bar"><div></div></div></div>
+      <div id="error"></div>
+      <div id="castbar"><div class="name"></div><div class="bar"><div></div></div></div>
+      <div id="prompt"></div>
+      <div id="loot-feed"></div>
+      <div id="boons"></div>
+      <div id="combo-toast"></div>
+      <div id="bottom">
+        <div id="buffs"></div>
+        <div class="bar" id="hp"><div></div><span></span></div>
+        <div class="bar" id="endurance"><div></div></div>
+        <div id="skills"></div>
+      </div>
+    </div>
+    <div id="rewards" class="overlay">
+      <div>
+        <h2></h2>
+        <div class="sub"></div>
+        <div id="reward-cards" class="cards"></div>
+      </div>
+    </div>
+    <div id="pause" class="overlay">
+      <div class="pause-panel">
+        <h2>Paused</h2>
+        <div class="tabs">
+          <button data-tab="inventory" class="active">Inventory <small>P</small></button>
+          <button data-tab="skills">Skills <small>K</small></button>
+          <button data-tab="traits">Traits <small>T</small></button>
+        </div>
+        <div id="tab-skills" class="tab-panel" hidden>
+          <div class="sub">Click a slot, then a skill to put in it (any skill fits any slot; equipping one that's already slotted swaps them). Slot 1 auto-repeats while held.</div>
+          <div id="loadout-row"></div>
+          <div class="skills-cols">
+            <div id="skill-pool"></div>
+            <div><h3>Combos</h3><div id="combo-ref"></div></div>
+          </div>
+        </div>
+        <div id="tab-traits" class="tab-panel" hidden>
+          <div class="sub">Pick one trait per tier — free to change any time while we experiment.</div>
+          <div id="trait-tiers"></div>
+        </div>
+        <div id="tab-inventory" class="tab-panel">
+        <div class="sub">P / Esc to resume · Click to equip, unequip or drink · Right-click to discard</div>
+        <div class="pause-cols">
+          <div><h3>Character</h3><div id="char-stats"></div></div>
+          <div><h3>Equipment</h3><div id="equip-slots"></div><h3>Bag</h3><div id="bag-grid"></div></div>
+          <div><h3>Details</h3><div id="item-details"><div class="muted">Hover an item</div></div></div>
+        </div>
+        </div>
+        <div class="pause-buttons"><button id="resume-btn">Resume</button><button id="abandon-btn">Abandon run</button></div>
+      </div>
+    </div>
+    <div id="class-select" class="overlay">
+      <div>
+        <h2>Choose your class</h2>
+        <div class="sub">Click a class or press 1–3</div>
+        <div id="class-cards" class="cards"></div>
+        <div id="class-meta" class="meta-buttons"></div>
+      </div>
+    </div>
+    <div id="run-summary" class="overlay">
+      <div class="meta-panel">
+        <h2 style="text-align:center"></h2>
+        <div class="sub" style="text-align:center"></div>
+        <div id="summary-lines"></div>
+        <div class="meta-buttons">
+          <button id="summary-upgrades">Upgrades</button>
+          <button id="summary-continue" class="primary">Continue</button>
+        </div>
+      </div>
+    </div>
+    <div id="upgrades" class="overlay">
+      <div class="meta-panel">
+        <div class="meta-head">
+          <h2>Upgrades</h2>
+          <div><span class="shards" id="upg-shards"></span> <span class="muted" id="upg-stats"></span></div>
+        </div>
+        <div class="sub" style="text-align:left;margin-bottom:12px">Permanent — they apply to every class and every future run.</div>
+        <div id="upgrade-grid"></div>
+        <div class="meta-buttons">
+          <button id="upg-refund">Refund all</button>
+          <button id="upg-done" class="primary">Done</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
