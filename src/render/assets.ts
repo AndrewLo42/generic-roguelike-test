@@ -10,7 +10,7 @@ import type { ModelVisual } from '../data/classes';
 
 const BASE = `${import.meta.env.BASE_URL}assets/kaykit/`;
 
-export const CHARACTER_MODELS = ['Knight', 'Rogue_Hooded', 'Mage', 'Skeleton_Minion', 'Skeleton_Warrior', 'Skeleton_Mage'];
+export const CHARACTER_MODELS = ['Knight', 'Rogue_Hooded', 'Rogue', 'Mage', 'Skeleton_Minion', 'Skeleton_Warrior', 'Skeleton_Mage'];
 export const DUNGEON_PIECES = [
   'floor_tile_small', 'floor_tile_small_broken_A', 'floor_tile_small_decorated',
   'wall', 'torch_mounted', 'chest', 'chest_gold', 'pillar', 'barrel_small', 'crates_stacked',

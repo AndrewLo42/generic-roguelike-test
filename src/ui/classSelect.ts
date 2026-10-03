@@ -19,13 +19,14 @@ CLASSES.forEach((c, i) => {
     `<div class="name">${c.name}</div><div class="role">${c.role}</div>` +
     `<div class="desc">${c.description}</div>` +
     `<div class="meta">${c.baseHp} HP${c.moveSpeedMul !== 1 ? ` · +${Math.round((c.moveSpeedMul - 1) * 100)}% speed` : ''}</div>` +
+    (c.passive ? `<div class="meta" title="${c.passive.desc}"><b>${c.passive.name}:</b> ${c.passive.desc}</div>` : '') +
     `<div class="kit">${c.kit.map((s) => `<span title="${s.name}" style="color:${s.color}">${s.icon}</span>`).join('')}</div>`;
   card.addEventListener('click', () => chooseClass(i));
   cardsEl.appendChild(card);
 });
 
 /** @param subtitle  e.g. "You died on floor 4" */
-export function openClassSelect(pick: (c: ClassDef) => void, subtitle = 'Click a class or press 1–3') {
+export function openClassSelect(pick: (c: ClassDef) => void, subtitle = 'Click a class or press 1–4') {
   onPick = pick;
   sub.textContent = subtitle;
   root.classList.add('open');

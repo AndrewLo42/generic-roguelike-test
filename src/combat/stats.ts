@@ -39,6 +39,12 @@ export interface PlayerStats {
   comboPotency: number;
   comboMight: number; // Might stacks granted per combo
   comboHealPct: number; // fraction of max HP healed per combo
+  // Positional / stealth (Rogue)
+  backstabBonus: number; // extra damage when hitting an enemy from behind
+  ambushBonus: number; // extra damage on attacks made from Stealth
+  ambushCrit: boolean; // attacks from Stealth always crit
+  stealthDurationMul: number;
+  poisonDamageMul: number;
 }
 
 export const BASE_STATS: Readonly<PlayerStats> = {
@@ -49,6 +55,7 @@ export const BASE_STATS: Readonly<PlayerStats> = {
   coneDamageMul: 1, projectileDamageMul: 1, areaDamageMul: 1, leapCooldownMul: 1, utilityCooldownMul: 1, castTimeMul: 1,
   burnDamageMul: 1, conditionDurationMul: 1, dmgVsAfflicted: 0,
   fieldDurationMul: 1, fieldRadiusMul: 1, comboPotency: 1, comboMight: 0, comboHealPct: 0,
+  backstabBonus: 0, ambushBonus: 0.3, ambushCrit: false, stealthDurationMul: 1, poisonDamageMul: 1,
 };
 
 /** Fraction of incoming damage that gets through, from armor (diminishing returns). */

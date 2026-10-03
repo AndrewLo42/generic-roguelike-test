@@ -34,6 +34,10 @@ export interface Leap {
   finisher: boolean;
   /** The skill that started the leap (landing statuses, damage family). */
   skill?: SkillDef;
+  /** Fixed facing during/after the leap (Shadowstep faces the target's back). */
+  faceAngle?: number;
+  /** Started from Stealth (landing hit is an Ambush). */
+  ambush?: boolean;
 }
 
 /** Plain-data player state; rendering reads this, never writes it. */
@@ -98,7 +102,8 @@ export function updatePlayer(
     p.x = l.fromX + (l.toX - l.fromX) * k;
     p.z = l.fromZ + (l.toZ - l.fromZ) * k;
     p.y = 4 * k * (1 - k) * l.height; // parabolic hop
-    if (l.faceTravel) p.facing = Math.atan2(l.toX - l.fromX, l.toZ - l.fromZ);
+    if (l.faceAngle !== undefined) p.facing = l.faceAngle;
+    else if (l.faceTravel) p.facing = Math.atan2(l.toX - l.fromX, l.toZ - l.fromZ);
     resolveCircleVsWalls(d, p, t.radius);
     if (k >= 1) {
       p.leap = null;

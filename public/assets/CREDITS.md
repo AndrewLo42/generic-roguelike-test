@@ -8,7 +8,7 @@ License: CC0 1.0 (see `kaykit/licenses/`). Downloaded from the official reposito
 
 | Pack | Files used | Used for |
 |---|---|---|
-| Character Pack: Adventurers 1.0 | `characters/Knight.glb`, `Rogue_Hooded.glb`, `Mage.glb` | Warrior, Ranger, Mage (models, weapons, animations) |
+| Character Pack: Adventurers 1.0 | `characters/Knight.glb`, `Rogue_Hooded.glb`, `Rogue.glb`, `Mage.glb` | Warrior, Ranger, Rogue, Mage (models, weapons, animations) |
 | Character Pack: Skeletons 1.0 | `characters/Skeleton_Minion.glb`, `Skeleton_Warrior.glb`, `Skeleton_Mage.glb` | Skeleton, Bone Brute, Hexer |
 | Dungeon Remastered 1.0 | `dungeon/*.glb` (floor tiles, wall, pillar, torch, chests, props) | Dungeon geometry and chests |
 

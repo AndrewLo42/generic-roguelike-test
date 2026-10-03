@@ -109,6 +109,7 @@ export function aggro(w: CombatWorld, e: Enemy) {
 export function updateEnemies(w: CombatWorld, p: PlayerState, d: Dungeon, flow: FlowField, dt: number) {
   flow.update(p.x, p.z);
 
+  const hidden = has(w.playerStatus, 'stealth');
   for (const e of w.enemies) {
     e.prevX = e.x;
     e.prevZ = e.z;
@@ -119,11 +120,14 @@ export function updateEnemies(w: CombatWorld, p: PlayerState, d: Dungeon, flow: 
 
     switch (e.state) {
       case 'idle':
-        if (!w.dead && dist < e.def.aggroRange && los) aggro(w, e);
+        if (!w.dead && !hidden && dist < e.def.aggroRange && los) aggro(w, e);
         break;
 
       case 'chase': {
         if (w.dead) { e.state = 'idle'; break; }
+        // Stealth: they've lost you — hold position, keep facing where they were looking
+        // (which is how a Rogue slips behind them), and don't start new attacks.
+        if (hidden) break;
         e.facing = Math.atan2(dx, dz);
         if (los && dist <= e.def.attackRange + playerTuning.radius) {
           e.state = 'windup';

@@ -1,4 +1,5 @@
 import { SKILL_LIBRARY as L, type SkillDef, type SkillKind } from './skills';
+import type { PlayerStats } from '../combat/stats';
 
 export interface ClassDef {
   id: string;
@@ -14,6 +15,8 @@ export interface ClassDef {
   kit: SkillDef[];
   /** Every skill this class can slot (in any slot). */
   pool: SkillDef[];
+  /** Always-on class trait, applied to stats. */
+  passive?: { name: string; desc: string; apply: (s: PlayerStats) => void };
   /** KayKit Adventurers model (public/assets/kaykit/characters/<model>.glb) and which held items to show. */
   visual: ModelVisual;
 }
@@ -53,6 +56,19 @@ export const CLASSES: ClassDef[] = [
     kit: [L.arcaneBolt, L.flameBurst, L.meteor, L.frostNova, L.blink],
     pool: [L.arcaneBolt, L.iceShard, L.flameBurst, L.meteor, L.frostNova, L.arcaneWell, L.arcaneBlast, L.sunfire, L.blink],
     visual: { model: 'Mage', scale: 0.8, keep: ['2H_Staff'], idle: 'Idle', move: 'Running_A' },
+  },
+  {
+    id: 'rogue', name: 'Rogue', role: 'Assassin', icon: '🗡', color: 0x6a4a8a, css: '#b9a0ff',
+    description: 'Strikes from the shadows. Poisons, smoke and stealth — hit from behind for huge damage.',
+    baseHp: 210, moveSpeedMul: 1.08,
+    kit: [L.twinStrikes, L.backstab, L.shadowstep, L.smokeBomb, L.deathBlossom],
+    pool: [L.twinStrikes, L.backstab, L.crippleStrike, L.shadowstep, L.smokeBomb, L.shadowBurst, L.deathBlossom, L.fanOfKnives, L.vanish, L.adrenaline],
+    passive: {
+      name: 'Opportunist',
+      desc: '+30% damage from behind; attacks from Stealth deal +50% more (Ambush).',
+      apply: (s) => { s.backstabBonus += 0.3; s.ambushBonus += 0.5; },
+    },
+    visual: { model: 'Rogue', scale: 0.8, keep: ['Knife', 'Knife_Offhand'], idle: 'Idle', move: 'Running_A' },
   },
 ];
 

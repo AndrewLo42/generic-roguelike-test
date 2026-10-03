@@ -18,7 +18,7 @@ export interface SkillsActions {
 const $ = (id: string) => document.getElementById(id)!;
 let selectedSlot = 1;
 
-const ELEMENTS: FieldElement[] = ['fire', 'ice', 'light', 'arcane'];
+const ELEMENTS: FieldElement[] = ['fire', 'ice', 'light', 'arcane', 'smoke'];
 const FINISHERS: Finisher[] = ['projectile', 'blast', 'leap', 'whirl'];
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -84,7 +84,7 @@ export function renderSkillsTab(c: SkillsContext, a: SkillsActions) {
     }
     html += '</tr>';
   }
-  html += '</table><div class="legend">Rows: fields (🔥 fire ❄ ice ☀ light ✦ arcane). Columns: finishers (➹ projectile 💥 blast ⤴ leap 🌀 whirl). ' +
+  html += '</table><div class="legend">Rows: fields (🔥 fire ❄ ice ☀ light ✦ arcane ☁ smoke). Columns: finishers (➹ projectile 💥 blast ⤴ leap 🌀 whirl). ' +
     'Use a finisher inside a field — or shoot through one — to trigger the combo. <b>Bold</b> = possible with your current skills. Hover for effects.</div>';
   $('combo-ref').innerHTML = html;
 }

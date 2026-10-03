@@ -74,6 +74,7 @@ export function computeStats(
   if (cls) {
     s.baseHp = cls.baseHp;
     s.moveSpeedMul = cls.moveSpeedMul;
+    cls.passive?.apply(s);
   }
   applyMeta(s, meta);
   applyTraits(s, traits);

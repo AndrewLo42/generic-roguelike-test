@@ -2,8 +2,8 @@
  * Status effects (GW2-style conditions on enemies, boons on the player).
  * Stored as plain maps so they serialize and test easily.
  */
-export type EnemyStatusId = 'burning' | 'chill' | 'vulnerability';
-export type PlayerStatusId = 'might' | 'regeneration' | 'swiftness' | 'protection';
+export type EnemyStatusId = 'burning' | 'chill' | 'vulnerability' | 'poison' | 'blind';
+export type PlayerStatusId = 'might' | 'regeneration' | 'swiftness' | 'protection' | 'stealth';
 export type StatusId = EnemyStatusId | PlayerStatusId;
 
 export interface StatusInstance {
@@ -27,14 +27,18 @@ export interface StatusDef {
 export const STATUS: Record<StatusId, StatusDef> = {
   burning: { name: 'Burning', icon: '🔥', color: '#ff7a2f', maxStacks: 10, describe: (n) => `${n * BURN_DPS_PER_STACK} damage/s` },
   chill: { name: 'Chilled', icon: '❄', color: '#7fd8ff', maxStacks: 1, describe: () => '−45% movement speed' },
+  poison: { name: 'Poisoned', icon: '☠', color: '#8fd14f', maxStacks: 15, describe: (n) => `${n * POISON_DPS_PER_STACK} damage/s` },
+  blind: { name: 'Blinded', icon: '🌫', color: '#9a9ab0', maxStacks: 1, describe: () => 'Next attack misses' },
   vulnerability: { name: 'Vulnerable', icon: '🔻', color: '#c77dff', maxStacks: 10, describe: (n) => `+${n * 5}% damage taken` },
   might: { name: 'Might', icon: '💪', color: '#ff9a40', maxStacks: 15, describe: (n) => `+${n * 3}% damage` },
   regeneration: { name: 'Regeneration', icon: '✚', color: '#6ee07a', maxStacks: 1, describe: () => `Heal ${REGEN_PCT * 100}% max HP/s` },
   swiftness: { name: 'Swiftness', icon: '👟', color: '#ffe066', maxStacks: 1, describe: () => '+33% movement speed' },
+  stealth: { name: 'Stealth', icon: '👤', color: '#b9a0ff', maxStacks: 1, describe: () => 'Enemies lose track of you; your next attack is an Ambush' },
   protection: { name: 'Protection', icon: '🛡', color: '#9fb4ff', maxStacks: 1, describe: () => '−33% damage taken' },
 };
 
 export const BURN_DPS_PER_STACK = 4;
+export const POISON_DPS_PER_STACK = 2.5;
 export const REGEN_PCT = 0.025;
 export const CHILL_SLOW = 0.55; // speed multiplier while chilled
 

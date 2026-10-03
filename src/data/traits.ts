@@ -45,6 +45,13 @@ export const TRAITS = {
   berserker: T({ id: 'berserker', name: 'Berserker', icon: '😤', desc: '+15% damage, −10% max HP', apply: (s) => { s.damageMul += 0.15; s.maxHpMul *= 0.9; } }),
   deadeye: T({ id: 'deadeye', name: 'Deadeye', icon: '🏹', desc: '+15% damage', apply: (s) => { s.damageMul += 0.15; } }),
   elementalFury: T({ id: 'elementalFury', name: 'Elemental Fury', icon: '🌋', desc: '+15% damage', apply: (s) => { s.damageMul += 0.15; } }),
+
+  // Rogue
+  assassin: T({ id: 'assassin', name: 'Assassin', icon: '🗡', desc: '+25% damage from behind', apply: (s) => { s.backstabBonus += 0.25; } }),
+  toxicologist: T({ id: 'toxicologist', name: 'Toxicologist', icon: '☠', desc: 'Poison deals +50% damage; conditions last 25% longer', apply: (s) => { s.poisonDamageMul += 0.5; s.conditionDurationMul += 0.25; } }),
+  shadowArts: T({ id: 'shadowArts', name: 'Shadow Arts', icon: '👤', desc: 'Stealth lasts 50% longer', apply: (s) => { s.stealthDurationMul += 0.5; } }),
+  deadlyAmbush: T({ id: 'deadlyAmbush', name: 'Deadly Ambush', icon: '🎭', desc: 'Attacks from Stealth always crit and deal +25% more', apply: (s) => { s.ambushCrit = true; s.ambushBonus += 0.25; } }),
+  cutthroat: T({ id: 'cutthroat', name: 'Cutthroat', icon: '🩸', desc: '+15% damage', apply: (s) => { s.damageMul += 0.15; } }),
 } satisfies Record<string, TraitDef>;
 
 export const traitById = (id: string): TraitDef | undefined => (TRAITS as Record<string, TraitDef>)[id];
@@ -64,6 +71,12 @@ export const TRAIT_TIERS: Record<string, { name: string; choices: TraitDef[] }[]
     { name: 'Master', choices: [L.pyromaniac, L.predator, L.tempo] },
     { name: 'Combos', choices: [L.comboAdept, L.executioner, L.survivalist] },
     { name: 'Grandmaster', choices: [L.warlord, L.undaunted, L.deadeye] },
+  ],
+  rogue: [
+    { name: 'Adept', choices: [L.assassin, L.toxicologist, L.fleetFooted] },
+    { name: 'Master', choices: [L.shadowArts, L.predator, L.tempo] },
+    { name: 'Combos', choices: [L.comboAdept, L.executioner, L.fieldMarshal] },
+    { name: 'Grandmaster', choices: [L.deadlyAmbush, L.undaunted, L.cutthroat] },
   ],
   mage: [
     { name: 'Adept', choices: [L.pyromancy, L.marksman, L.cryomancy] },

@@ -4,6 +4,7 @@ import type { CombatWorld } from '../combat/world';
 import { isInvulnerable, playerTuning, type PlayerState } from '../systems/player';
 import { instantiateCharacter } from './assets';
 import { AnimatedModel, impactTimeScale } from './animatedModel';
+import { has } from '../combat/status';
 
 /**
  * The player's visual: a KayKit character driven by simulation state, or a capsule placeholder
@@ -17,6 +18,7 @@ export class PlayerView {
   private materials: THREE.MeshStandardMaterial[] = [];
   private cls: ClassDef | null = null;
   private wasDodging = false;
+  private stealthed = false;
   private wasDead = false;
   private lastHp = 0;
   // Placeholder
@@ -58,6 +60,7 @@ export class PlayerView {
   /** Clear per-run animation state (new floor / new run). */
   resetRun() {
     this.wasDodging = false;
+    this.setStealthed(false);
     this.wasDead = false;
     this.lastHp = Infinity;
     this.model?.stopOverlay();
@@ -121,7 +124,21 @@ export class PlayerView {
 
     // Brief white flash while invulnerable so i-frames are readable.
     for (const mat of this.materials) mat.emissive.setScalar(dodging ? 0.15 : 0);
+    this.setStealthed(has(w.playerStatus, 'stealth'));
     m.update(dt);
+  }
+
+  /** Stealth: translucent with a faint violet tint. Toggling transparency needs a shader rebuild. */
+  private setStealthed(on: boolean) {
+    if (on === this.stealthed) return;
+    this.stealthed = on;
+    for (const mat of this.materials) {
+      mat.transparent = on;
+      mat.opacity = on ? 0.28 : 1;
+      mat.depthWrite = !on;
+      mat.color.setHex(on ? 0xb9a0ff : 0xffffff);
+      mat.needsUpdate = true;
+    }
   }
 
   private dodgeClip(p: PlayerState) {

@@ -37,6 +37,8 @@ export interface Telegraph {
   ownerId: number | null; // enemy id; cancelled if the owner dies
   /** Player skill that created it (friendly AoEs): applies its statuses/field on impact. */
   skill?: SkillDef;
+  /** Cast from Stealth. */
+  ambush?: boolean;
 }
 
 /** A lingering combo field on the ground (always the player's). */
@@ -71,6 +73,8 @@ export interface Projectile {
   combo?: FieldElement;
   /** Spawned by a whirl combo — doesn't trigger further combos. */
   comboBolt?: boolean;
+  /** Fired from Stealth. */
+  ambush?: boolean;
 }
 
 export type CombatEventKind = 'damage' | 'crit' | 'hurt' | 'heal' | 'evade' | 'info' | 'burn' | 'combo';

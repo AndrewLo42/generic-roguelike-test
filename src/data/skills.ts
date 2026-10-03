@@ -13,7 +13,7 @@ import type { StatusId } from '../combat/status';
  * it hits, or grant `buffs` to you.
  */
 export type SkillKind = 'cone' | 'projectile' | 'groundAoe' | 'selfAoe' | 'leap' | 'buff';
-export type LeapMode = 'target' | 'forward' | 'backward';
+export type LeapMode = 'target' | 'forward' | 'backward' | 'behind';
 
 export interface StatusApply {
   id: StatusId;
@@ -46,6 +46,8 @@ export interface SkillDef {
   leapHeight?: number;
   /** Leave a combo field: at the impact point (groundAoe) or under you (everything else). */
   field?: { element: FieldElement; duration: number; radius: number };
+  /** Extra damage multiplier (on top of the backstab stat) when this skill hits from behind. */
+  behindBonus?: number;
   /** Combo finisher type. Leaps check on landing; blasts/whirls at you when the skill resolves. */
   finisher?: Finisher;
   /** Conditions applied to enemies this skill hits. */
@@ -168,6 +170,50 @@ export const SKILL_LIBRARY = {
     range: 18, radius: 3.5, delay: 0.6, damage: 30, requiresTarget: false, desc: 'Column of light that leaves a Light field and grants Regeneration.',
     field: { element: 'light', duration: 6, radius: 3.5 }, buffs: [{ id: 'regeneration', stacks: 1, duration: 5 }],
     anim: 'Spellcast_Long', animImpact: 0.55 }),
+
+  // ---------- Rogue ----------
+  twinStrikes: S({ id: 'twinStrikes', name: 'Twin Strikes', icon: '⚔', color: '#c0c8d8', kind: 'cone', cooldown: 0, castTime: 0.32,
+    range: 2.7, arc: Math.PI * 0.6, damage: 10, requiresTarget: false, desc: 'Quick dual-dagger slashes that Poison.',
+    statuses: [{ id: 'poison', stacks: 1, duration: 6 }],
+    anim: 'Dualwield_Melee_Attack_Slice', animImpact: 0.4 }),
+  backstab: S({ id: 'backstab', name: 'Backstab', icon: '🗡', color: '#e0a0ff', kind: 'cone', cooldown: 5, castTime: 0.35,
+    range: 2.8, arc: Math.PI * 0.35, damage: 26, requiresTarget: false, behindBonus: 0.6,
+    desc: 'Heavy stab. +60% damage from behind (stacks with the Rogue passive).',
+    anim: 'Dualwield_Melee_Attack_Stab', animImpact: 0.45 }),
+  shadowstep: S({ id: 'shadowstep', name: 'Shadowstep', icon: '👣', color: '#9a7aff', kind: 'leap', cooldown: 9, castTime: 0,
+    range: 14, damage: 0, requiresTarget: true, leapMode: 'behind', leapDuration: 0.12, leapHeight: 0, finisher: 'leap',
+    desc: 'Teleport behind your target and vanish for 1s (follow with Backstab). Gain Regeneration.',
+    buffs: [{ id: 'stealth', stacks: 1, duration: 1 }, { id: 'regeneration', stacks: 1, duration: 3 }],
+    anim: 'Dodge_Forward', animImpact: 1, animFullBody: true }),
+  smokeBomb: S({ id: 'smokeBomb', name: 'Smoke Bomb', icon: '💣', color: '#a6a6c2', kind: 'selfAoe', cooldown: 12, castTime: 0.2,
+    range: 0, radius: 3.2, damage: 6, requiresTarget: false,
+    desc: 'Blind nearby enemies and leave a Smoke field. Blast or leap inside it to Stealth.',
+    field: { element: 'smoke', duration: 5, radius: 3.5 }, statuses: [{ id: 'blind', stacks: 1, duration: 3 }],
+    anim: 'Throw', animImpact: 0.5 }),
+  deathBlossom: S({ id: 'deathBlossom', name: 'Death Blossom', icon: '🌀', color: '#8fd14f', kind: 'selfAoe', cooldown: 7, castTime: 0.3,
+    range: 0, radius: 3.2, damage: 16, requiresTarget: false, finisher: 'whirl',
+    desc: 'Spinning flurry that Poisons everything around you.', statuses: [{ id: 'poison', stacks: 3, duration: 6 }],
+    anim: '2H_Melee_Attack_Spin', animImpact: 0.35, animFullBody: true }),
+  fanOfKnives: S({ id: 'fanOfKnives', name: 'Fan of Knives', icon: '🔪', color: '#d0d0e0', kind: 'projectile', cooldown: 4, castTime: 0.25,
+    range: 14, speed: 30, radius: 0.25, damage: 9, count: 3, spread: 0.22, requiresTarget: false, finisher: 'projectile',
+    desc: 'Throw 3 poisoned knives.', statuses: [{ id: 'poison', stacks: 1, duration: 6 }],
+    anim: 'Throw', animImpact: 0.5 }),
+  shadowBurst: S({ id: 'shadowBurst', name: 'Shadow Burst', icon: '💥', color: '#9a7aff', kind: 'selfAoe', cooldown: 8, castTime: 0.2,
+    range: 0, radius: 2.8, damage: 18, requiresTarget: false, finisher: 'blast',
+    desc: 'Burst of shadow — a blast finisher. In smoke: Stealth.',
+    anim: '1H_Melee_Attack_Slice_Horizontal', animImpact: 0.45 }),
+  crippleStrike: S({ id: 'crippleStrike', name: 'Crippling Strike', icon: '🦵', color: '#7fd8ff', kind: 'cone', cooldown: 8, castTime: 0.3,
+    range: 2.8, arc: Math.PI * 0.4, damage: 16, requiresTarget: false, desc: 'Hamstring: Chill and 2 Vulnerability.',
+    statuses: [{ id: 'chill', stacks: 1, duration: 3 }, { id: 'vulnerability', stacks: 2, duration: 6 }],
+    anim: 'Dualwield_Melee_Attack_Chop', animImpact: 0.45 }),
+  vanish: S({ id: 'vanish', name: 'Vanish', icon: '👤', color: '#b9a0ff', kind: 'buff', cooldown: 20, castTime: 0,
+    range: 0, damage: 0, requiresTarget: false, desc: 'Instantly Stealth (3s) with Swiftness and Regeneration.',
+    buffs: [{ id: 'stealth', stacks: 1, duration: 3 }, { id: 'swiftness', stacks: 1, duration: 3 }, { id: 'regeneration', stacks: 1, duration: 3 }],
+    anim: 'Dodge_Backward', animImpact: 1, animFullBody: true }),
+  adrenaline: S({ id: 'adrenaline', name: 'Adrenaline Rush', icon: '⚡', color: '#ffe066', kind: 'buff', cooldown: 15, castTime: 0,
+    range: 0, damage: 0, requiresTarget: false, desc: 'Gain 5 Might, Swiftness and Regeneration.',
+    buffs: [{ id: 'might', stacks: 5, duration: 8 }, { id: 'swiftness', stacks: 1, duration: 5 }, { id: 'regeneration', stacks: 1, duration: 4 }],
+    anim: 'Cheer', animImpact: 0.3 }),
 } satisfies Record<string, SkillDef>;
 
 export const skillById = (id: string): SkillDef | undefined => (SKILL_LIBRARY as Record<string, SkillDef>)[id];

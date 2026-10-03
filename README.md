@@ -16,6 +16,7 @@ npm test           # generator determinism / connectivity tests
 |---|---|---|
 | Warrior (melee) | 260 | Cleave · Savage Leap (gap-closer + landing AoE) · Whirling Strike (AoE around you, whirl finisher) · Flame Brand (fire field) · Warhorn (Swiftness + Might) |
 | Ranger (ranged, +10% speed) | 200 | Long Shot (homing arrow) · Volley (5-arrow fan) · Fire Trap (fire field) · Disengage (hop away from target) · Hunter's Call (Swiftness + Might) |
+| Rogue (assassin, +8% speed) | 210 | Twin Strikes (poison) · Backstab (+60% from behind) · Shadowstep (teleport behind + 1s Stealth) · Smoke Bomb (smoke field, blinds) · Death Blossom (poison whirl) |
 | Mage (caster) | 170 | Arcane Bolt · Flame Burst (fast small AoE) · Meteor (big slow AoE, fire field) · Frost Nova (blast + ice field) · Blink (teleport forward) |
 
 There are no dedicated healing skills. Sustain comes from **Regeneration** (2.5% max HP/s) on several skills — Warhorn, Battle Standard, Hunter's Call, Disengage, Frost Nova, Blink, Sunfire — plus lifesteal, light-field combos and scarce **potions (H)**.
@@ -24,7 +25,9 @@ There are no dedicated healing skills. Sustain comes from **Regeneration** (2.5%
 
 **Combos (GW2 fields + finishers):** some skills leave an elemental **field** (🔥 fire, ❄ ice, ☀ light, ✦ arcane) that also pulses a small effect each second; others are **finishers** (➹ projectile, 💥 blast, ⤴ leap, 🌀 whirl). Shoot through a field or use a finisher inside one to trigger a combo — e.g. Meteor's fire field + Frost Nova (blast) = Fire Blast (Might); Fire Trap + Volley = burning arrows; Battle Standard (light) + Whirling Strike = Healing Whirl. The Skills tab has the full 4×4 combo table with the ones your current loadout can do highlighted. A skill never combos with its own field. Data: `src/data/combos.ts`; effects: `triggerCombo` in `src/systems/combat.ts`.
 
-**Statuses:** enemies — Burning (DoT), Chilled (−45% speed), Vulnerable (+5% damage taken per stack); you — Might (+3% damage/stack), Regeneration, Swiftness, Protection (−33% damage taken). Shown as icons on nameplates and above your health bar. `src/combat/status.ts`.
+**Statuses:** enemies — Burning (DoT), Poisoned (stacking DoT), Chilled (−45% speed), Vulnerable (+5% damage taken per stack), Blinded (their next attack misses); you — Might (+3% damage/stack), Regeneration, Swiftness, Protection (−33% damage taken), Stealth.
+
+**Rogue mechanics:** *Backstab* — hits from an enemy's rear arc deal bonus damage (Rogue passive +30%, Backstab skill +60% more). *Stealth* — enemies lose track of you (idle ones won't notice you; chasers freeze and keep facing where they were looking, which is how you get behind them); your next damaging skill is an *Ambush* (+30% for everyone, +80% for the Rogue) and breaks Stealth. Sources: Shadowstep (1s), Vanish (3s), and the new ☁ *smoke field* — blast or leap inside it for Stealth, shoot through it to Blind. Core loop: Smoke Bomb → Shadowstep (Shadow Leap) → Backstab. Shown as icons on nameplates and above your health bar. `src/combat/status.ts`.
 
 **Traits (T):** 4 tiers × 3 choices per class (Adept / Master / Combos / Grandmaster) — skill-family damage, cast speed, condition and field duration, combo potency, and grandmaster riders like *Warlord* (combos grant Might) or *Undaunted* (combos heal). Not resource-gated yet; free to swap, remembered per class. `src/data/traits.ts`.
 

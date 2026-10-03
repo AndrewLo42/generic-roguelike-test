@@ -2,16 +2,16 @@
  * GW2-style combos: some skills leave an elemental FIELD on the ground; other skills are
  * FINISHERS. Using a finisher inside (or, for projectiles, through) a field triggers a combo.
  */
-export type FieldElement = 'fire' | 'ice' | 'light' | 'arcane';
+export type FieldElement = 'fire' | 'ice' | 'light' | 'arcane' | 'smoke';
 export type Finisher = 'projectile' | 'blast' | 'leap' | 'whirl';
 
 export const ELEMENT_COLOR: Record<FieldElement, number> = {
-  fire: 0xff6a2a, ice: 0x6fd6ff, light: 0xffe27a, arcane: 0xb46bff,
+  fire: 0xff6a2a, ice: 0x6fd6ff, light: 0xffe27a, arcane: 0xb46bff, smoke: 0x8c8ca8,
 };
 export const ELEMENT_CSS: Record<FieldElement, string> = {
-  fire: '#ff7a2f', ice: '#7fd8ff', light: '#ffe27a', arcane: '#c77dff',
+  fire: '#ff7a2f', ice: '#7fd8ff', light: '#ffe27a', arcane: '#c77dff', smoke: '#a6a6c2',
 };
-export const ELEMENT_ICON: Record<FieldElement, string> = { fire: '🔥', ice: '❄', light: '☀', arcane: '✦' };
+export const ELEMENT_ICON: Record<FieldElement, string> = { fire: '🔥', ice: '❄', light: '☀', arcane: '✦', smoke: '☁' };
 export const FINISHER_ICON: Record<Finisher, string> = { projectile: '➹', blast: '💥', leap: '⤴', whirl: '🌀' };
 
 export interface ComboDef {
@@ -45,5 +45,11 @@ export const COMBOS: Record<FieldElement, Record<Finisher, ComboDef>> = {
     blast: { name: 'Arcane Shatter', text: 'Nearby enemies gain 5 Vulnerability' },
     leap: { name: 'Phase Leap', text: 'Gain Swiftness + 2 Might' },
     whirl: { name: 'Arcane Whirl', text: 'Spray 6 vulnerability bolts' },
+  },
+  smoke: {
+    projectile: { name: 'Blinding Shot', text: 'Projectiles Blind (next enemy attack misses)' },
+    blast: { name: 'Smoke Blast', text: 'Gain Stealth (3s)' },
+    leap: { name: 'Shadow Leap', text: 'Gain Stealth (2s)' },
+    whirl: { name: 'Smoke Whirl', text: 'Spray 6 blinding bolts' },
   },
 };

@@ -112,6 +112,7 @@ const WEAPON_BASES: Record<string, { names: string[]; icon: string }> = {
   warrior: { names: ['Greatsword', 'Axe', 'Warhammer', 'Mace'], icon: '⚔' },
   ranger: { names: ['Longbow', 'Shortbow', 'Recurve Bow'], icon: '🏹' },
   mage: { names: ['Staff', 'Wand', 'Scepter', 'Focus'], icon: '🪄' },
+  rogue: { names: ['Daggers', 'Twin Blades', 'Kris', 'Stilettos'], icon: '🗡' },
 };
 const ARMOR_BASES: Record<Exclude<ItemSlot, 'weapon'>, string[]> = {
   head: ['Helm', 'Hood', 'Circlet', 'Cowl'],

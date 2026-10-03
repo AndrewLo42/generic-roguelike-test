@@ -1,7 +1,7 @@
 import type { Input } from '../core/input';
 import type { SkillDef, StatusApply } from '../data/skills';
 import { COMBOS, type FieldElement, type Finisher } from '../data/combos';
-import { BURN_DPS_PER_STACK, REGEN_PCT, applyStatus, has, stacksOf, tickStatuses } from '../combat/status';
+import { BURN_DPS_PER_STACK, POISON_DPS_PER_STACK, REGEN_PCT, applyStatus, has, stacksOf, tickStatuses } from '../combat/status';
 import type { Dungeon } from '../world/dungeon/generator';
 import { hasLineOfSight, isWallAt } from '../world/collision';
 import { type Shape, angleDiff, shapeHits } from '../combat/shapes';
@@ -92,8 +92,10 @@ export function castFacing(w: CombatWorld, p: PlayerState): number | null {
 interface HitOpts {
   /** Skill dealing the damage — picks the damage-family multiplier (cone / projectile / area). */
   skill?: SkillDef;
-  /** Burning tick: no crit, no lifesteal, no hit flash, burn multiplier instead of family. */
-  burn?: boolean;
+  /** Damage-over-time tick: no crit, no lifesteal, no hit flash, condition multiplier instead of family. */
+  dot?: 'burning' | 'poison';
+  /** Made from Stealth (Ambush bonus). */
+  ambush?: boolean;
   /** Conditions to apply on hit. */
   statuses?: StatusApply[];
 }
@@ -107,14 +109,22 @@ function familyMul(s: PlayerStats, skill?: SkillDef) {
   }
 }
 
-const isAfflicted = (e: Enemy) => has(e.status, 'burning') || has(e.status, 'chill') || has(e.status, 'vulnerability');
+const isAfflicted = (e: Enemy) =>
+  has(e.status, 'burning') || has(e.status, 'chill') || has(e.status, 'vulnerability') || has(e.status, 'poison');
+
+/** Is (x, z) in the enemy's rear arc (more than ~110° off its facing)? */
+export function isBehind(e: Enemy, x: number, z: number) {
+  const dx = x - e.x, dz = z - e.z, l = Math.hypot(dx, dz) || 1;
+  return (dx * Math.sin(e.facing) + dz * Math.cos(e.facing)) / l < -0.35;
+}
 
 function applyCondition(e: Enemy, p: PlayerState, st: StatusApply) {
   applyStatus(e.status, st.id, st.stacks, st.duration * p.stats.conditionDurationMul);
 }
 
-function applyBoon(w: CombatWorld, st: StatusApply) {
-  applyStatus(w.playerStatus, st.id, st.stacks, st.duration);
+function applyBoon(w: CombatWorld, p: PlayerState, st: StatusApply) {
+  const dur = st.id === 'stealth' ? st.duration * p.stats.stealthDurationMul : st.duration;
+  applyStatus(w.playerStatus, st.id, st.stacks, dur);
 }
 
 /**
@@ -123,20 +133,28 @@ function applyBoon(w: CombatWorld, st: StatusApply) {
  */
 function damageEnemy(w: CombatWorld, p: PlayerState, e: Enemy, base: number, opts: HitOpts = {}) {
   const s = p.stats;
-  const crit = !opts.burn && Math.random() < s.critChance;
+  const dot = opts.dot;
+  const crit = !dot && ((opts.ambush && s.ambushCrit) || Math.random() < s.critChance);
   let mul = s.damageMul + stacksOf(w.playerStatus, 'might') * 0.03;
-  mul *= opts.burn ? s.burnDamageMul : familyMul(s, opts.skill);
+  mul *= dot === 'burning' ? s.burnDamageMul : dot === 'poison' ? s.poisonDamageMul : familyMul(s, opts.skill);
   mul *= 1 + stacksOf(e.status, 'vulnerability') * 0.05;
   if (isAfflicted(e)) mul *= 1 + s.dmgVsAfflicted;
+  // Positional play: from behind (Backstab) and from Stealth (Ambush).
+  const behind = !dot && isBehind(e, p.x, p.z);
+  if (behind) mul *= 1 + s.backstabBonus + (opts.skill?.behindBonus ?? 0);
+  if (opts.ambush) mul *= 1 + s.ambushBonus;
   if (crit) mul *= s.critMul;
   const amount = Math.max(1, Math.round(base * mul));
   e.hp -= amount;
-  if (!opts.burn) e.hitFlash = 0.12;
+  if (!dot) e.hitFlash = 0.12;
   w.events.push({
     x: e.x, y: e.def.height + 0.3, z: e.z,
-    text: crit ? `${amount}!` : String(amount), kind: opts.burn ? 'burn' : crit ? 'crit' : 'damage',
+    text: crit ? `${amount}!` : String(amount), kind: dot ? 'burn' : crit ? 'crit' : 'damage',
   });
-  if (!opts.burn && s.lifesteal > 0 && !w.dead) healPlayer(w, p, amount * s.lifesteal, false);
+  if (opts.ambush || (behind && opts.skill?.behindBonus)) {
+    w.events.push({ x: e.x, y: e.def.height + 0.9, z: e.z, text: opts.ambush ? 'Ambush!' : 'Backstab!', kind: 'combo' });
+  }
+  if (!dot && s.lifesteal > 0 && !w.dead) healPlayer(w, p, amount * s.lifesteal, false);
   for (const st of opts.statuses ?? []) applyCondition(e, p, st);
   aggro(w, e);
   if (e.hp <= 0 && w.enemies.includes(e)) {
@@ -217,7 +235,7 @@ function announceCombo(w: CombatWorld, p: PlayerState, element: FieldElement, fi
   const name = COMBOS[element][finisher].name;
   w.comboEvents.push({ element, finisher, name });
   w.events.push({ x: p.x, y: 3, z: p.z, text: name, kind: 'combo' });
-  if (p.stats.comboMight > 0) applyBoon(w, { id: 'might', stacks: p.stats.comboMight, duration: 8 });
+  if (p.stats.comboMight > 0) applyBoon(w, p, { id: 'might', stacks: p.stats.comboMight, duration: 8 });
   if (p.stats.comboHealPct > 0) healPlayer(w, p, w.maxHp * p.stats.comboHealPct);
 }
 
@@ -244,20 +262,22 @@ export function triggerCombo(w: CombatWorld, p: PlayerState, element: FieldEleme
   }
 
   switch (`${element}.${finisher}`) {
-    case 'fire.blast': applyBoon(w, { id: 'might', stacks: Math.round(3 * k), duration: 8 }); break;
+    case 'fire.blast': applyBoon(w, p, { id: 'might', stacks: Math.round(3 * k), duration: 8 }); break;
     case 'fire.leap': for (const e of near()) applyCondition(e, p, { id: 'burning', stacks: Math.round(3 * k), duration: 4 }); break;
-    case 'ice.blast': applyBoon(w, { id: 'protection', stacks: 1, duration: 5 * k }); break;
+    case 'ice.blast': applyBoon(w, p, { id: 'protection', stacks: 1, duration: 5 * k }); break;
     case 'ice.leap': for (const e of near()) applyCondition(e, p, { id: 'chill', stacks: 1, duration: 3 * k }); break;
     case 'light.blast': healPlayer(w, p, w.maxHp * 0.12 * k); break;
-    case 'light.leap': applyBoon(w, { id: 'regeneration', stacks: 1, duration: 6 * k }); break;
+    case 'light.leap': applyBoon(w, p, { id: 'regeneration', stacks: 1, duration: 6 * k }); break;
     case 'light.whirl':
       healPlayer(w, p, w.maxHp * 0.08 * k);
-      applyBoon(w, { id: 'regeneration', stacks: 1, duration: 3 * k });
+      applyBoon(w, p, { id: 'regeneration', stacks: 1, duration: 3 * k });
       break;
     case 'arcane.blast': for (const e of near()) applyCondition(e, p, { id: 'vulnerability', stacks: Math.round(5 * k), duration: 6 }); break;
+    case 'smoke.blast': applyBoon(w, p, { id: 'stealth', stacks: 1, duration: 3 * k }); break;
+    case 'smoke.leap': applyBoon(w, p, { id: 'stealth', stacks: 1, duration: 2 * k }); break;
     case 'arcane.leap':
-      applyBoon(w, { id: 'swiftness', stacks: 1, duration: 6 * k });
-      applyBoon(w, { id: 'might', stacks: Math.round(2 * k), duration: 8 });
+      applyBoon(w, p, { id: 'swiftness', stacks: 1, duration: 6 * k });
+      applyBoon(w, p, { id: 'might', stacks: Math.round(2 * k), duration: 8 });
       break;
   }
 }
@@ -270,6 +290,7 @@ function projectileComboHit(w: CombatWorld, p: PlayerState, e: Enemy, element: F
     case 'ice': applyCondition(e, p, { id: 'chill', stacks: 1, duration: 2 * k }); break;
     case 'light': healPlayer(w, p, 6 * k, false); break;
     case 'arcane': applyCondition(e, p, { id: 'vulnerability', stacks: Math.round(3 * k), duration: 6 }); break;
+    case 'smoke': applyCondition(e, p, { id: 'blind', stacks: 1, duration: 3 * k }); break;
   }
 }
 
@@ -315,9 +336,11 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
   const aim = target ? Math.atan2(target.x - p.x, target.z - p.z) : p.facing;
   const flash = (shape: Shape) =>
     w.telegraphs.push({ id: w.nextId++, shape, duration: 0.12, elapsed: 0, hostile: false, damage: 0, ownerId: null });
-  const hitOpts: HitOpts = { skill, statuses: skill.statuses };
+  // Attacking out of Stealth is an Ambush; any damaging skill then breaks Stealth.
+  const ambush = has(w.playerStatus, 'stealth') && skill.damage > 0;
+  const hitOpts: HitOpts = { skill, statuses: skill.statuses, ambush };
 
-  for (const b of skill.buffs ?? []) applyBoon(w, b);
+  for (const b of skill.buffs ?? []) applyBoon(w, p, b);
   // Blast & whirl finishers resolve against fields already on the ground — before this skill
   // lays its own field, so a skill never combos with itself.
   if (skill.finisher === 'blast' || skill.finisher === 'whirl') checkFinisher(w, p, skill.finisher, p.x, p.z);
@@ -352,7 +375,7 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
           id: w.nextId++, x: p.x, z: p.z, prevX: p.x, prevZ: p.z,
           dirX: Math.sin(a), dirZ: Math.cos(a), speed: skill.speed!, damage: skill.damage,
           radius: skill.radius!, life: skill.range / skill.speed!,
-          targetId: skill.homing && center ? target?.id ?? null : null, skill,
+          targetId: skill.homing && center ? target?.id ?? null : null, skill, ambush,
         });
       }
       break;
@@ -370,7 +393,7 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
       w.telegraphs.push({
         id: w.nextId++, shape: { kind: 'circle', x: tx, z: tz, r: skill.radius! * s.groundAoeRadiusMul },
         duration: skill.delay!, elapsed: 0, hostile: false, damage: Math.round(skill.damage * s.groundAoeDamageMul), ownerId: null,
-        skill,
+        skill, ambush,
       });
       break;
     }
@@ -378,7 +401,19 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
     case 'leap': {
       const mode = skill.leapMode ?? 'target';
       let dir = aim, distance: number;
-      if (mode === 'target') {
+      let faceAngle: number | undefined;
+      if (mode === 'behind') {
+        // Teleport to the target's back and face the same way it does.
+        if (!target) break;
+        const back = target.def.radius + playerTuning.radius + 0.35;
+        let bx = target.x - Math.sin(target.facing) * back, bz = target.z - Math.cos(target.facing) * back;
+        if (isWallAt(d, bx, bz)) { // no room behind: arrive at its side facing it instead
+          bx = target.x - Math.sin(aim) * back; bz = target.z - Math.cos(aim) * back;
+        }
+        dir = Math.atan2(bx - p.x, bz - p.z);
+        distance = Math.hypot(bx - p.x, bz - p.z);
+        faceAngle = Math.atan2(target.x - bx, target.z - bz);
+      } else if (mode === 'target') {
         if (!target) break;
         distance = Math.max(0, dist(p, target) - target.def.radius - playerTuning.radius - 0.2);
       } else {
@@ -392,7 +427,7 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
         toX: p.x + Math.sin(dir) * distance, toZ: p.z + Math.cos(dir) * distance,
         t: 0, dur: skill.leapDuration ?? 0.35, height: skill.leapHeight ?? 2.2,
         faceTravel: mode !== 'backward', landRadius: skill.radius ?? 0, landDamage: skill.damage,
-        finisher: skill.finisher === 'leap', skill,
+        finisher: skill.finisher === 'leap', skill, faceAngle, ambush,
       };
       p.dodgeTime = 0;
       break;
@@ -401,6 +436,8 @@ function finishCast(w: CombatWorld, p: PlayerState, d: Dungeon) {
     case 'buff':
       break; // buffs/field already applied above
   }
+
+  if (ambush) delete w.playerStatus.stealth;
 }
 
 /** How far you can travel from (x,z) along `angle` (up to `max`) before hitting a wall. */
@@ -453,7 +490,7 @@ export function updateCombat(w: CombatWorld, p: PlayerState, d: Dungeon, dt: num
     const l = p.landed;
     if (l.landDamage > 0 && l.landRadius > 0) {
       const shape: Shape = { kind: 'circle', x: p.x, z: p.z, r: l.landRadius };
-      hitEnemiesInShape(w, p, shape, l.landDamage, { skill: l.skill, statuses: l.skill?.statuses });
+      hitEnemiesInShape(w, p, shape, l.landDamage, { skill: l.skill, statuses: l.skill?.statuses, ambush: l.ambush });
       w.telegraphs.push({ id: w.nextId++, shape, duration: 0.15, elapsed: 0, hostile: false, damage: 0, ownerId: null });
     }
     // Leap finisher: a field where you land, or where you took off.
@@ -491,7 +528,7 @@ export function updateCombat(w: CombatWorld, p: PlayerState, d: Dungeon, dt: num
     }
     const hit = w.enemies.find((e) => Math.hypot(e.x - pr.x, e.z - pr.z) < e.def.radius + pr.radius);
     if (hit) {
-      damageEnemy(w, p, hit, pr.damage, { skill: pr.skill, statuses: pr.skill?.statuses });
+      damageEnemy(w, p, hit, pr.damage, { skill: pr.skill, statuses: pr.skill?.statuses, ambush: pr.ambush });
       if (pr.combo) projectileComboHit(w, p, hit, pr.combo);
     }
     if (hit || pr.life <= 0 || isWallAt(d, pr.x, pr.z)) w.projectiles = w.projectiles.filter((o) => o !== pr);
@@ -503,9 +540,14 @@ export function updateCombat(w: CombatWorld, p: PlayerState, d: Dungeon, dt: num
     if (tg.elapsed < tg.duration) continue;
     if (tg.damage > 0) {
       if (tg.hostile) {
-        if (!w.dead && shapeHits(tg.shape, p.x, p.z, playerTuning.radius)) damagePlayer(w, p, tg.damage);
+        const owner = w.enemies.find((e) => e.id === tg.ownerId);
+        if (owner && has(owner.status, 'blind')) {
+          // Blinded: the attack whiffs and consumes the Blind.
+          delete owner.status.blind;
+          w.events.push({ x: owner.x, y: owner.def.height + 0.5, z: owner.z, text: 'Miss', kind: 'evade' });
+        } else if (!w.dead && shapeHits(tg.shape, p.x, p.z, playerTuning.radius)) damagePlayer(w, p, tg.damage);
       } else {
-        hitEnemiesInShape(w, p, tg.shape, tg.damage, { skill: tg.skill, statuses: tg.skill?.statuses });
+        hitEnemiesInShape(w, p, tg.shape, tg.damage, { skill: tg.skill, statuses: tg.skill?.statuses, ambush: tg.ambush });
       }
     }
     // Ground-targeted skills drop their field where they land.
@@ -519,7 +561,9 @@ export function updateCombat(w: CombatWorld, p: PlayerState, d: Dungeon, dt: num
 function tickStatusEffects(w: CombatWorld, p: PlayerState, dt: number) {
   for (const e of [...w.enemies]) {
     tickStatuses(e.status, dt, (id, stacks) => {
-      if (id === 'burning' && w.enemies.includes(e)) damageEnemy(w, p, e, BURN_DPS_PER_STACK * stacks, { burn: true });
+      if (!w.enemies.includes(e)) return;
+      if (id === 'burning') damageEnemy(w, p, e, BURN_DPS_PER_STACK * stacks, { dot: 'burning' });
+      if (id === 'poison') damageEnemy(w, p, e, POISON_DPS_PER_STACK * stacks, { dot: 'poison' });
     });
   }
   tickStatuses(w.playerStatus, dt, (id) => {
@@ -541,6 +585,7 @@ function tickFields(w: CombatWorld, p: PlayerState, dt: number) {
         case 'ice': for (const e of inside) applyCondition(e, p, { id: 'chill', stacks: 1, duration: 1.5 }); break;
         case 'arcane': for (const e of inside) applyCondition(e, p, { id: 'vulnerability', stacks: 1, duration: 3 }); break;
         case 'light': if (Math.hypot(p.x - f.x, p.z - f.z) <= f.r) healPlayer(w, p, w.maxHp * 0.02, false); break;
+        case 'smoke': for (const e of inside) applyCondition(e, p, { id: 'blind', stacks: 1, duration: 1.5 }); break;
       }
     }
     if (f.remaining <= 0) w.fields = w.fields.filter((o) => o !== f);
