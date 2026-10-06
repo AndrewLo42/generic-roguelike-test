@@ -1,6 +1,6 @@
 import {
-  type AffixStat, AFFIXES, type GearItem, type Item, type ItemSlot, ITEM_RARITY_COLOR, POTION_HEAL_PCT,
-  SLOTS, SLOT_ICON, SLOT_LABEL, affixLabel, affixTotals,
+  type AffixStat, AFFIXES, type EquipSlot, type GearItem, type Item, ITEM_RARITY_COLOR, POTION_HEAL_PCT,
+  EQUIP_SLOTS, SLOT_ICON, SLOT_LABEL, affixLabel, affixTotals,
 } from '../data/items';
 import { type PlayerStats, armorFactor } from '../combat/stats';
 import type { ClassDef } from '../data/classes';
@@ -17,11 +17,15 @@ export interface PauseContext extends SkillsContext {
   hp: number;
   maxHp: number;
   floor: number;
+  /** Weapon swap cooldown remaining. */
+  swapCd: number;
 }
 
 export interface InventoryActions extends SkillsActions {
-  equip(bagIndex: number): void;
-  unequip(slot: ItemSlot): void;
+  /** `toSwapSet`: put a weapon in the swap set instead of the active one (shift-click). */
+  equip(bagIndex: number, toSwapSet: boolean): void;
+  swapSets(): void;
+  unequip(slot: EquipSlot): void;
   discard(bagIndex: number): void;
   usePotion(): void;
   resume(): void;
@@ -112,7 +116,7 @@ function slotEl(item: Item | null, placeholder?: string): HTMLDivElement {
 
 function renderEquipment(c: PauseContext) {
   equipEl.innerHTML = '';
-  for (const slot of SLOTS) {
+  for (const slot of EQUIP_SLOTS) {
     const item = c.inv.equipped[slot];
     const wrap = document.createElement('div');
     wrap.className = 'equip-row';
@@ -124,6 +128,15 @@ function renderEquipment(c: PauseContext) {
     const name = document.createElement('span');
     name.innerHTML = item ? `<span style="color:${ITEM_RARITY_COLOR[item.rarity]}">${item.name}</span>` : `<i>${SLOT_LABEL[slot]}</i>`;
     wrap.appendChild(name);
+    if (slot === 'weapon2') {
+      const b = document.createElement('button');
+      b.className = 'swap-btn';
+      b.textContent = c.swapCd > 0 ? `⇄ ${Math.ceil(c.swapCd)}s` : '⇄ Swap';
+      b.title = 'Swap weapon sets (` or X in game)';
+      b.disabled = !item || c.swapCd > 0;
+      b.addEventListener('click', () => actions?.swapSets());
+      wrap.appendChild(b);
+    }
     equipEl.appendChild(wrap);
   }
 }
@@ -133,7 +146,7 @@ function renderBag(c: PauseContext) {
   c.inv.bag.forEach((item, i) => {
     const el = slotEl(item);
     if (item) {
-      el.addEventListener('click', () => (item.kind === 'gear' ? actions?.equip(i) : actions?.usePotion()));
+      el.addEventListener('click', (e) => (item.kind === 'gear' ? actions?.equip(i, e.shiftKey) : actions?.usePotion()));
       el.addEventListener('contextmenu', (e) => { e.preventDefault(); actions?.discard(i); });
       el.addEventListener('mouseenter', () => showDetails(c, item, false));
     }
@@ -170,13 +183,15 @@ function showDetails(c: PauseContext, item: Item | null, isEquipped: boolean) {
     const w = weaponFor(c.cls.id, g.weaponType);
     const swaps = !isEquipped && w.id !== c.weapon.id;
     weaponLine = `<div class="d-line weapon-type">${w.icon} ${w.name} — skills: ${w.skills.map((sk) => `<span style="color:${sk.color}" title="${sk.name}">${sk.icon}</span>`).join(' ')}</div>` +
-      (swaps ? `<div class="d-line up">⇄ Equipping changes your weapon skills</div>` : '');
+      (swaps ? `<div class="d-line up">⇄ Equipping it as your active weapon changes your weapon skills</div>` : '');
   }
   detailsEl.innerHTML =
     `<div class="d-name" style="color:${color}">${g.icon} ${g.name}</div>` +
     `<div class="d-meta">${cap(g.rarity)} ${SLOT_LABEL[g.slot]} · Level ${g.level}</div>` +
     weaponLine + lines + compare +
-    `<div class="d-hint">${isEquipped ? 'Click to unequip' : 'Click to equip · right-click to discard'}</div>`;
+    `<div class="d-hint">${isEquipped ? 'Click to unequip'
+      : g.slot === 'weapon' ? 'Click: equip as active weapon · Shift-click: equip as swap weapon · right-click to discard'
+        : 'Click to equip · right-click to discard'}</div>`;
 }
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);

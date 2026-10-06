@@ -28,6 +28,20 @@
       .skill .cdtext { position: absolute; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 600; text-shadow: 0 1px 2px #000; }
       .skill .key { position: absolute; top: 2px; left: 4px; font-size: 10px; opacity: 0.8; }
       .skill.casting { border-color: #fff; }
+      #skills .skill { pointer-events: auto; cursor: help; }
+      #skill-tip { position: fixed; display: none; transform: translateX(-50%); width: 280px; max-width: calc(100vw - 24px); box-sizing: border-box; background: #12141bf2; border: 1px solid #ffffff30; border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.4; pointer-events: none; box-shadow: 0 6px 20px #0008; z-index: 5; }
+      #skill-tip .tt-head { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+      #skill-tip .tt-head b { flex: 1; }
+      #skill-tip .tt-head kbd { font-size: 10px; padding: 1px 5px; border: 1px solid #ffffff40; border-radius: 4px; background: #ffffff10; }
+      #skill-tip .tt-ic { font-size: 20px; }
+      #skill-tip .tt-sub { opacity: 0.55; font-size: 11px; margin: 2px 0 5px; }
+      #skill-tip .tt-stats { margin-bottom: 4px; }
+      #skill-tip .tt-stats s { opacity: 0.45; }
+      #skill-tip .better { color: #8fe08a; font-weight: 600; }
+      #skill-tip .tt-desc { margin-bottom: 4px; }
+      #skill-tip .tt-cd { margin-top: 5px; color: #ffcf6b; }
+      .skill.swap { width: 42px; height: 42px; align-self: center; font-size: 20px; }
+      .skill.swap i { font-style: normal; }
       #castbar { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); width: 220px; display: none; }
       #castbar > .bar > div { background: #9fd7ff; transition: none; }
       #castbar > .name { text-align: center; font-size: 12px; text-shadow: 0 1px 2px #000; }
@@ -130,12 +144,19 @@
       .tabs button.active { background: #2f6f8a; border-color: #7fe3ff66; }
       .pause-panel { max-height: calc(100vh - 48px); overflow-y: auto; }
       #loadout-row { display: flex; gap: 8px; justify-content: center; margin: 4px 0 16px; flex-wrap: wrap; }
-      .lslot { width: 120px; padding: 8px; border-radius: 8px; background: #1b1e26; border: 2px solid #ffffff25; cursor: pointer; text-align: center; font-size: 12px; }
+      .lslot { box-sizing: border-box; width: 96px; padding: 8px 6px; border-radius: 8px; background: #1b1e26; border: 2px solid #ffffff25; cursor: pointer; text-align: center; font-size: 12px; }
       .lslot .ic { font-size: 24px; display: block; }
       .lslot .k { font-size: 10px; opacity: 0.6; }
       .lslot.sel { border-color: #7fe3ff; box-shadow: 0 0 12px -2px #7fe3ff; }
+      .lgap { width: 14px; }
+      .wtabs { display: flex; gap: 6px; justify-content: center; margin: -6px 0 10px; flex-wrap: wrap; }
+      .wtabs button { background: #1b1e26; color: #e8e6df; border: 1px solid #ffffff25; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+      .wtabs button.on { border-color: #7fe3ff; color: #7fe3ff; }
+      .wtabs button small { opacity: 0.6; }
       .skills-cols { display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
       #skill-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; align-content: start; }
+      .swap-btn { margin-left: auto; background: #1b1e26; color: #7fe3ff; border: 1px solid #7fe3ff55; border-radius: 6px; padding: 3px 8px; cursor: pointer; font-size: 12px; }
+      .swap-btn:disabled { opacity: 0.4; cursor: default; }
       .pool-head { grid-column: 1 / -1; font-size: 13px; margin: 6px 0 -2px; color: #e8e6df; }
       .pool-head small { opacity: 0.55; font-weight: 400; }
       .scard { background: #1b1e26; border: 1px solid #ffffff1a; border-radius: 8px; padding: 8px 10px; cursor: pointer; font-size: 12px; position: relative; }
@@ -210,6 +231,7 @@
     </div>
     <div id="world-ui"></div>
     <div id="hud">
+      <div id="skill-tip"></div>
       <div id="info"></div>
       <div id="banner"></div>
       <div id="target"><div class="name"></div><div class="bar"><div></div></div></div>
@@ -242,7 +264,8 @@
           <button data-tab="traits">Traits <small>T</small></button>
         </div>
         <div id="tab-skills" class="tab-panel" hidden>
-          <div class="sub">Click a slot, then a skill to put in it (any skill fits any slot; equipping one that's already slotted swaps them). Slot 1 auto-repeats while held.</div>
+          <div class="sub">Slots 1–5 take the weapon's skills, 6–8 take utilities. Click a slot, then a skill (picking one that's already slotted swaps them). Each weapon remembers its own loadout. Slot 1 auto-repeats while held.</div>
+          <div id="weapon-tabs" class="wtabs"></div>
           <div id="loadout-row"></div>
           <div class="skills-cols">
             <div id="skill-pool"></div>

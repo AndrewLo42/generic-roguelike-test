@@ -54,8 +54,8 @@ export interface SkillDef {
   statuses?: StatusApply[];
   /** Boons applied to yourself when the skill resolves. */
   buffs?: StatusApply[];
-  /** KayKit animation clip played when the skill is used. */
-  anim?: string;
+  /** Animation clip played when the skill is used; with a list, the first one the model has. */
+  anim?: string | string[];
   /** Fraction of the clip where the "hit" lands; playback is sped up so it lines up with the cast end. */
   animImpact?: number;
   /** Play on the whole body even while moving (spins, leaps, dodges). Default: upper body when moving. */
@@ -76,7 +76,7 @@ export const SKILL_LIBRARY = {
   savageLeap: S({ id: 'savageLeap', name: 'Savage Leap', icon: '➶', color: '#e05a5a', kind: 'leap', cooldown: 8, castTime: 0,
     range: 12, radius: 2.8, damage: 30, requiresTarget: true, leapMode: 'target', finisher: 'leap',
     desc: 'Leap to your target and slam the ground.',
-    anim: '2H_Melee_Attack_Chop', animImpact: 0.5, animFullBody: true }),
+    anim: ['Leap_Attack', '2H_Melee_Attack_Chop'], animImpact: 0.5, animFullBody: true }),
   whirl: S({ id: 'whirl', name: 'Whirling Strike', icon: '🌀', color: '#d9a441', kind: 'selfAoe', cooldown: 6, castTime: 0.3,
     range: 0, radius: 3.6, damage: 32, requiresTarget: false, finisher: 'whirl', desc: 'Spin, hitting everything around you.',
     anim: '2H_Melee_Attack_Spin', animImpact: 0.35, animFullBody: true }),
@@ -90,7 +90,7 @@ export const SKILL_LIBRARY = {
   chargingStrike: S({ id: 'chargingStrike', name: 'Rush', icon: '💨', color: '#e0c060', kind: 'leap', cooldown: 7, castTime: 0,
     range: 9, radius: 2.4, damage: 18, requiresTarget: false, leapMode: 'forward', leapDuration: 0.3, leapHeight: 0.6,
     finisher: 'leap', desc: 'Charge forward and strike on arrival.',
-    anim: 'Dodge_Forward', animImpact: 1, animFullBody: true }),
+    anim: ['Charge', 'Dodge_Forward'], animImpact: 1, animFullBody: true }),
   banner: S({ id: 'banner', name: 'Battle Standard', icon: '🚩', color: '#ffe27a', kind: 'buff', cooldown: 18, castTime: 0.4,
     range: 0, damage: 0, requiresTarget: false, desc: 'Plant a Light field; gain Protection and Regeneration.',
     field: { element: 'light', duration: 6, radius: 3.5 }, buffs: [{ id: 'protection', stacks: 1, duration: 5 }, { id: 'regeneration', stacks: 1, duration: 6 }],

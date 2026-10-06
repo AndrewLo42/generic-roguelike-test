@@ -1,9 +1,9 @@
 import * as THREE from 'three';
+import { type RigProfile, RIGS } from './rigs';
 
 type Part = 'full' | 'upper' | 'lower';
 
 const FADE = 0.12;
-const UPPER = /^(spine|chest|head|upperarm|lowerarm|wrist|hand|handslot|elbowIK|handIK)/;
 
 /** "upperarm.l.quaternion" -> "upperarm.l" */
 const boneOf = (trackName: string) => trackName.slice(0, trackName.lastIndexOf('.'));
@@ -26,17 +26,27 @@ export class AnimatedModel {
   private overlay: { action: THREE.AnimationAction; part: 'full' | 'upper'; endsAt: number; persistent: boolean; name: string } | null = null;
   private time = 0;
 
-  constructor(root: THREE.Object3D, clips: THREE.AnimationClip[]) {
+  constructor(root: THREE.Object3D, clips: THREE.AnimationClip[], readonly rig: RigProfile = RIGS.kaykit) {
     this.mixer = new THREE.AnimationMixer(root);
     for (const c of clips) this.clips.set(c.name, c);
   }
 
+  /** Canonical clip name -> the clip this model actually plays (via the rig's aliases). */
+  private resolve(name: string) {
+    return this.clips.has(name) ? name : this.rig.aliases[name] ?? name;
+  }
+
   has(name: string) {
-    return this.clips.has(name);
+    return this.clips.has(this.resolve(name));
   }
 
   clip(name: string) {
-    return this.clips.get(name);
+    return this.clips.get(this.resolve(name));
+  }
+
+  /** Where the hit lands in this model's version of the clip, if the rig knows better than the skill data. */
+  impactOf(name: string): number | undefined {
+    return this.rig.impact[this.resolve(name)];
   }
 
   get overlayName() {
@@ -45,19 +55,21 @@ export class AnimatedModel {
 
   /** Clip variant restricted to a body part, with horizontal root motion removed. */
   private action(name: string, part: Part): THREE.AnimationAction {
+    name = this.resolve(name);
     const key = `${name}|${part}`;
     let a = this.actions.get(key);
     if (a) return a;
     const src = this.clips.get(name)!;
+    const { root, hips, upper } = this.rig;
     const tracks = src.tracks
       .filter((t) => {
         const bone = boneOf(t.name);
-        if (bone === 'root' && t.name.endsWith('.position')) return false; // in-place only
-        return part === 'full' || UPPER.test(bone) === (part === 'upper');
+        if (bone === root && t.name.endsWith('.position')) return false; // in-place only
+        return part === 'full' || upper.test(bone) === (part === 'upper');
       })
       .map((t) => {
         // Pin hips X/Z so dodges/attacks don't drift away from the simulated position.
-        if (boneOf(t.name) !== 'hips' || !t.name.endsWith('.position')) return t;
+        if (boneOf(t.name) !== hips || !t.name.endsWith('.position')) return t;
         const c = t.clone();
         const v = c.values;
         for (let i = 0; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; }
@@ -71,7 +83,7 @@ export class AnimatedModel {
   /** Set the looping locomotion clip (no-op if unchanged). */
   setBase(name: string, timeScale = 1) {
     if (!this.has(name)) return;
-    this.baseName = name;
+    this.baseName = this.resolve(name);
     this.refreshBase();
     if (this.baseAction) this.baseAction.timeScale = timeScale;
   }
@@ -99,6 +111,7 @@ export class AnimatedModel {
    */
   playOnce(name: string, opts: { timeScale?: number; part?: 'full' | 'upper'; persistent?: boolean } = {}): boolean {
     if (!this.has(name)) return false;
+    name = this.resolve(name);
     const { timeScale = 1, part = 'full', persistent = false } = opts;
     this.overlay?.action.fadeOut(FADE);
     const a = this.action(name, part);

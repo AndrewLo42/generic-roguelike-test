@@ -8,7 +8,7 @@ npm run dev        # http://localhost:5173  (?seed=42 fixed layout, ?class=warri
 npm test           # generator determinism / connectivity tests
 ```
 
-**Controls:** W/S move · A/D strafe · Q/E turn (strafe while holding RMB) · Space jump · V/Shift dodge (costs 50 endurance, i-frames) · H potion · F open chest · P inventory / K skills / T traits (pauses) · 1–5 skills (hold 1 to auto-attack) · Tab / left-click target, C nearest enemy, Esc clear · hold RMB to steer camera · wheel zoom · R restart run (same class) · blue portal = next floor (seed + 1, +30% HP). Tuning lives in the collapsed *Debug* panel.
+**Controls:** W/S move · A/D strafe · Q/E turn (strafe while holding RMB) · Space jump · V/Shift dodge (costs 50 endurance, i-frames) · H potion · F open chest · P inventory / K skills / T traits (pauses) · 1–5 weapon skills (hold 1 to auto-attack) · 6–8 utilities · ` / X swap weapons · Tab / left-click target, C nearest enemy, Esc clear · hold RMB to steer camera · wheel zoom · R restart run (same class) · blue portal = next floor (seed + 1, +30% HP). Hover any skill-bar slot for a live tooltip (stats after your bonuses, effects, combo role, recharge time). Tuning lives in the collapsed *Debug* panel.
 
 **Classes** (picked from the start menu, and again after each death):
 
@@ -19,7 +19,10 @@ npm test           # generator determinism / connectivity tests
 | Rogue (assassin, +8% speed) | 210 | Twin Strikes (poison) · Backstab (+60% from behind) · Shadowstep (teleport behind + 1s Stealth) · Smoke Bomb (smoke field, blinds) · Death Blossom (poison whirl) |
 | Mage (caster) | 170 | Arcane Bolt · Flame Burst (fast small AoE) · Meteor (big slow AoE, fire field) · Frost Nova (blast + ice field) · Blink (teleport forward) |
 
-**Weapons (GW2-style):** each class has weapon types, and the equipped weapon decides your *weapon skills*; *utility skills* belong to the class and work with any weapon. Every run starts with a statless starter of each type (the last one you used is equipped, the rest are in the bag), so swapping is always one click in the inventory (P). Dropped weapons roll any of your class's types, and their tooltip shows the skills they bring. Loadouts are remembered per class **and** weapon. Defined in `src/data/weapons.ts`.
+**Weapons (GW2-style):** each class has weapon types. The skill bar is split: slots **1–5** hold the active weapon's skills, slots **6–8** hold class *utility* skills, which work with any weapon and stay put when you swap.
+- **Weapon swap:** you carry two weapon sets (inventory: *Weapon* + *Swap weapon*). Press **`** or **X** to swap (5s cooldown; the button left of slot 1 shows the other weapon). Only the active weapon's stats count. Skills you swap away keep cooling down and come back with the remaining time, so swapping can't reset cooldowns (`src/game/cooldowns.ts`).
+- **Gear:** every run starts with a statless starter of each type in your saved sets. Click a weapon in the bag to equip it as active, shift-click to equip it as the swap weapon. Drops roll any of your class's types; tooltips show their skills.
+- **Saved between runs:** your two weapon sets, each weapon's 1–5 loadout (editable for any class weapon from the Skills tab's weapon tabs, even unequipped ones), and your 6–8 utilities. Defined in `src/data/weapons.ts`.
 
 | Class | Weapon | Weapon skills | Utilities (any weapon) |
 |---|---|---|---|
@@ -34,7 +37,7 @@ npm test           # generator determinism / connectivity tests
 
 There are no dedicated healing skills. Sustain comes from **Regeneration** (2.5% max HP/s) on several skills — Warhorn, Battle Standard, Hunter's Call, Disengage, Frost Nova, Blink, Sunfire — plus lifesteal, light-field combos and scarce **potions (H)**.
 
-**Skill loadouts (K):** your pool is the equipped weapon's skills plus the class utilities; in the pause menu's **Skills** tab click a slot, then any skill to put it there (fully free — any skill in any slot; picking one already slotted swaps them). Loadouts are remembered per class and weapon.
+**Skill loadouts (K):** in the pause menu's **Skills** tab pick a weapon tab, click a slot, then a skill: weapon skills go in 1–5, utilities in 6–8 (picking one already slotted swaps them). Remembered per class and weapon.
 
 **Combos (GW2 fields + finishers):** some skills leave an elemental **field** (🔥 fire, ❄ ice, ☀ light, ✦ arcane) that also pulses a small effect each second; others are **finishers** (➹ projectile, 💥 blast, ⤴ leap, 🌀 whirl). Shoot through a field or use a finisher inside one to trigger a combo — e.g. Meteor's fire field + Frost Nova (blast) = Fire Blast (Might); Fire Trap + Volley = burning arrows; Battle Standard (light) + Whirling Strike = Healing Whirl. The Skills tab has the full 4×4 combo table with the ones your current loadout can do highlighted. A skill never combos with its own field. Data: `src/data/combos.ts`; effects: `triggerCombo` in `src/systems/combat.ts`.
 
@@ -84,8 +87,17 @@ Rule of thumb: simulation/generation code stays free of Three.js so it's testabl
 7. ⬜ Electron shell + packaging
 8. ⬜ Later: open terrain zones (noise heightmap chunks, same spawner API)
 
+## Our own art (Meshy pipeline)
+The Warrior and his weapons are original assets made with Meshy; the other classes and the dungeon are still KayKit. Style brief: [docs/art-bible.md](docs/art-bible.md) (GW2-inspired painterly look, described in our own words; never feed other games' art into generation).
+
+1. **Generate** with `npm run meshy -- <command>` ([tools/meshy/cli.ts](tools/meshy/cli.ts)): `concept` (text-to-image), `model` (image-to-3D, auto-remeshed to a polycount), `remesh`, `rig`, `animate` (library clips, 3 credits each), `library --search` and `balance` (free). Needs `MESHY_API_KEY` in `.env.local` (gitignored). Anything that spends credits is a dry run without `--yes`. Every task is logged to `assets-src/meshy/<asset>/manifest.json`.
+2. **Build** the game file with Blender: `Blender -b --python tools/blender/import_meshy.py -- assets-src/meshy/warrior/import.json [--preview DIR]`. The JSON config maps Meshy clips to our canonical names (trim / reverse / mirror / hold a pose), closes the open A-pose hands into fists, and attaches weapons from their own files with automatic grips (sword handle through the fist, blade out of the thumb side; shield grip bar in the fist, face outward). Output: `public/assets/meshy/Warrior.glb`.
+3. **Rig profiles** ([src/render/rigs.ts](src/render/rigs.ts)) let KayKit and Meshy skeletons share all gameplay data: bone masks for upper-body casts, clip aliases, and per-clip impact timing. `src/render/rigs.test.ts` checks every class's skills, dodges and weapon props resolve on its actual model.
+
+Raw Meshy downloads (`assets-src/**/*.glb`, ~130 MB) are gitignored; concepts, manifests and the import config are kept. Meshy's download links expire, so keep a local backup of `assets-src/` if you may need to rebuild.
+
 ## Assets (all CC0 unless noted — record everything in `public/assets/CREDITS.md`)
-**In use:** KayKit Adventurers (Knight = Warrior, Rogue_Hooded = Ranger, Mage), Skeletons (Minion = Skeleton, Warrior = Bone Brute, Mage = Hexer) and Dungeon Remastered, in `public/assets/kaykit/` (~28 MB, uncompressed). How they're wired:
+**In use:** KayKit Adventurers (Rogue_Hooded = Ranger, Rogue, Mage; the Knight file supplies skeleton weapons), Skeletons (Minion = Skeleton, Warrior = Bone Brute, Mage = Hexer) and Dungeon Remastered, in `public/assets/kaykit/` (~28 MB, uncompressed). How they're wired:
 - Which model/weapon/animations each class, enemy and skill uses is data: `visual` in `classes.ts` / `enemies.ts`, `anim` in `skills.ts`. Both packs share one rig, so skeletons borrow weapons from the adventurer files (attached to `handslotr`).
 - Skill animations are sped up so the clip's impact frame lands when the cast resolves; enemy attack swings likewise connect when their telegraph fills. While moving, casts play on the upper body only and the legs keep running.
 - Dungeon walls are laid along floor edges (paired into 4-wide pieces), with pillars at inner corners and a pool of 6 torch lights that follow the player. Everything static is instanced.

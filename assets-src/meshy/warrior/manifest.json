@@ -1,0 +1,128 @@
+[
+  {
+    "at": "2026-10-06T21:16:43.403Z",
+    "cmd": "concept",
+    "taskId": "01a11312-ecc8-759c-b61e-89d0a8444204",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A northern human mercenary warrior in his thirties, blackened steel plate armor layered over dark leather and chainmail, a heavy grey wolf-fur mantle across the shoulders, one oversized sculpted pauldron on the left shoulder, teal cloth sash and tassets with bronze trim, braided dark hair and short beard, no helmet, rugged and confident. stylized realistic fantasy MMO character, hand-painted painterly textures, heroic proportions, ornate layered armor with sculpted plates and raised gold trim, soft painted highlights, rich but slightly desaturated colors with a saturated accent color, high detail game character concept. full-body character turnaround sheet, front view, side view and back view, standing in a relaxed A-pose, arms away from the body, empty hands, no weapons, plain light grey background, even soft studio lighting, no cast shadows, entire figure visible head to toe. Avoid: chibi, cartoon, toy, anime, photorealism, weapons, props, cropped feet, text, logos.",
+      "pose_mode": "a-pose",
+      "generate_multi_view": true
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/warrior/concepts/01a11312_0.png",
+      "assets-src/meshy/warrior/concepts/01a11312_1.png",
+      "assets-src/meshy/warrior/concepts/01a11312_2.png"
+    ]
+  },
+  {
+    "at": "2026-10-06T21:21:20.762Z",
+    "cmd": "model",
+    "taskId": "01a11314-a2aa-7147-9a53-2afb38dc5b91",
+    "request": {
+      "image_urls": [
+        "01a11312_0.png",
+        "01a11312_1.png",
+        "01a11312_2.png"
+      ],
+      "model_type": "standard",
+      "target_polycount": 15000,
+      "pose_mode": "a-pose",
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/warrior/model_01a11314.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T21:33:47.542Z",
+    "cmd": "remesh",
+    "taskId": "01a11321-3297-709f-976c-240f3ad8ef27",
+    "request": {
+      "input_task_id": "01a11314-a2aa-7147-9a53-2afb38dc5b91",
+      "topology": "triangle",
+      "target_polycount": 18000,
+      "resize_height": 1.85,
+      "origin_at": "bottom"
+    },
+    "credits": 5,
+    "files": [
+      "assets-src/meshy/warrior/remesh_01a11321.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T21:36:08.948Z",
+    "cmd": "rig",
+    "taskId": "01a11324-e7a8-74ce-ba35-12eac6a2ecd4",
+    "request": {
+      "input_task_id": "01a11321-3297-709f-976c-240f3ad8ef27",
+      "animation_type": "biped",
+      "height_meters": 1.85
+    },
+    "credits": 5,
+    "files": [
+      "assets-src/meshy/warrior/rigged_01a11324.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T21:45:09.640Z",
+    "cmd": "animate",
+    "taskId": "01a1132c-d6ec-7154-b748-d10a97a607c5",
+    "request": {
+      "rig_task_id": "01a11324-e7a8-74ce-ba35-12eac6a2ecd4",
+      "action_ids": [
+        89,
+        546,
+        466,
+        159,
+        163,
+        158,
+        178,
+        189,
+        242,
+        237
+      ],
+      "post_process": {
+        "operation_type": "change_fps",
+        "fps": 30
+      }
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/warrior/anims_batch1.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T21:45:55.020Z",
+    "cmd": "animate",
+    "taskId": "01a1132d-a7e2-7004-b643-29726f429296",
+    "request": {
+      "rig_task_id": "01a11324-e7a8-74ce-ba35-12eac6a2ecd4",
+      "action_ids": [
+        238,
+        86,
+        510,
+        92,
+        4,
+        138,
+        421,
+        101,
+        342
+      ],
+      "post_process": {
+        "operation_type": "change_fps",
+        "fps": 30
+      }
+    },
+    "credits": 27,
+    "files": [
+      "assets-src/meshy/warrior/anims_batch2.glb"
+    ]
+  }
+]

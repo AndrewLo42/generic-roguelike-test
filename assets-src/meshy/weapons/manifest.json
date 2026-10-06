@@ -1,0 +1,117 @@
+[
+  {
+    "at": "2026-10-06T22:19:49.386Z",
+    "cmd": "concept",
+    "taskId": "01a1134c-e4af-74b7-82ab-44d49bb212a8",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A northern two-handed greatsword standing vertically, point up: long broad double-edged blade of blackened steel with a bright honed edge and a central fuller, heavy bronze crossguard shaped like snarling wolf jaws, long grip wrapped in dark leather with teal cord, bronze wolf-head pommel. hand-painted painterly textures, stylized realistic fantasy MMO weapon, game asset, heroic proportions, rich but slightly desaturated colors with a teal accent, soft painted highlights, high detail. single object only, centered, straight-on orthographic front view, the whole object visible, plain light grey background, even soft studio lighting, no cast shadows, no hands, no people, no text.",
+      "aspect_ratio": "9:16"
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/weapons/concepts/greatsword_0.png"
+    ],
+    "note": "re-downloaded: original filenames collided (same id prefix)"
+  },
+  {
+    "at": "2026-10-06T22:19:57.471Z",
+    "cmd": "concept",
+    "taskId": "01a1134c-e4b1-7440-baf7-9ae0c7d510b4",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A northern one-handed arming sword standing vertically, point up: straight blackened steel blade with a bright honed edge and a central fuller, simple swept bronze crossguard, dark leather wrapped grip, round bronze pommel with a small wolf emblem. hand-painted painterly textures, stylized realistic fantasy MMO weapon, game asset, heroic proportions, rich but slightly desaturated colors with a teal accent, soft painted highlights, high detail. single object only, centered, straight-on orthographic front view, the whole object visible, plain light grey background, even soft studio lighting, no cast shadows, no hands, no people, no text.",
+      "aspect_ratio": "9:16"
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/weapons/concepts/arming_sword_0.png"
+    ],
+    "note": "re-downloaded: original filenames collided (same id prefix)"
+  },
+  {
+    "at": "2026-10-06T22:19:57.666Z",
+    "cmd": "concept",
+    "taskId": "01a1134c-e4b2-7046-ad76-1272a1c2fb8d",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A northern round shield, about 70cm across, shown as a turnaround sheet with front view, back view and side view: the front is teal-painted wooden planks with a battle-worn grey wolf-head emblem, a blackened iron rim and a domed bronze center boss; the back shows bare wooden planks with a single leather-wrapped wooden grip handle across the middle and iron rivets. hand-painted painterly textures, stylized realistic fantasy MMO weapon, game asset, heroic proportions, rich but slightly desaturated colors with a teal accent, soft painted highlights, high detail. Plain light grey background, even soft studio lighting, no cast shadows, no hands, no people, no text.",
+      "generate_multi_view": true
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/weapons/concepts/shield_0.png",
+      "assets-src/meshy/weapons/concepts/shield_1.png",
+      "assets-src/meshy/weapons/concepts/shield_2.png"
+    ],
+    "note": "re-downloaded: original filenames collided (same id prefix)"
+  },
+  {
+    "at": "2026-10-06T22:24:22.612Z",
+    "cmd": "model",
+    "taskId": "01a1134f-e0e5-7568-b067-7932fc937d9b",
+    "request": {
+      "image_urls": [
+        "arming_sword_0.png"
+      ],
+      "model_type": "standard",
+      "should_remesh": true,
+      "target_polycount": 2500,
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/weapons/model_fc937d9b.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T22:24:24.759Z",
+    "cmd": "model",
+    "taskId": "01a1134f-d918-71d1-a186-6a59e88d0fa6",
+    "request": {
+      "image_urls": [
+        "greatsword_0.png"
+      ],
+      "model_type": "standard",
+      "should_remesh": true,
+      "target_polycount": 2500,
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/weapons/model_e88d0fa6.glb"
+    ]
+  },
+  {
+    "at": "2026-10-06T22:24:49.381Z",
+    "cmd": "model",
+    "taskId": "01a1134f-e8d1-7627-a755-2158b392fce0",
+    "request": {
+      "image_urls": [
+        "shield_0.png",
+        "shield_1.png",
+        "shield_2.png"
+      ],
+      "model_type": "standard",
+      "should_remesh": true,
+      "target_polycount": 3000,
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/weapons/model_b392fce0.glb"
+    ]
+  }
+]

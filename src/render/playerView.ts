@@ -4,6 +4,7 @@ import type { WeaponDef } from '../data/weapons';
 import type { CombatWorld } from '../combat/world';
 import { isInvulnerable, playerTuning, type PlayerState } from '../systems/player';
 import { instantiateCharacter, showHandProps } from './assets';
+import { rigOf } from './rigs';
 import { AnimatedModel, impactTimeScale } from './animatedModel';
 import { has } from '../combat/status';
 
@@ -49,7 +50,7 @@ export class PlayerView {
     if (inst) {
       this.visualRoot = inst.root;
       this.materials = inst.materials;
-      this.model = new AnimatedModel(inst.root, inst.clips);
+      this.model = new AnimatedModel(inst.root, inst.clips, rigOf(cls.visual.rig));
       this.model.setBase(this.idleClip());
       this.group.add(inst.root);
     } else {
@@ -64,7 +65,7 @@ export class PlayerView {
   setWeapon(weapon: WeaponDef) {
     if (this.weapon === weapon) return;
     this.weapon = weapon;
-    if (this.visualRoot) showHandProps(this.visualRoot, weapon.keep);
+    if (this.visualRoot) showHandProps(this.visualRoot, weapon.keep, this.cls?.visual.rig);
   }
 
   private idleClip() {
@@ -107,9 +108,11 @@ export class PlayerView {
       }
 
       for (const skill of w.skillEvents) {
-        if (!skill.anim) continue;
-        const ts = impactTimeScale(m.clip(skill.anim), skill.animImpact ?? 0.5, skill.castTime);
-        m.playOnce(skill.anim, { timeScale: ts, part: skill.animFullBody || !p.moving ? 'full' : 'upper' });
+        // A skill may list several clips; play the first this model has (e.g. Meshy's Leap_Attack, else KayKit's chop).
+        const anim = [skill.anim ?? []].flat().find((a) => m.has(a));
+        if (!anim) continue;
+        const ts = impactTimeScale(m.clip(anim), m.impactOf(anim) ?? skill.animImpact ?? 0.5, skill.castTime);
+        m.playOnce(anim, { timeScale: ts, part: skill.animFullBody || !p.moving ? 'full' : 'upper' });
       }
 
       if (w.hp < this.lastHp - 0.5 && this.lastHp !== Infinity && !m.overlayName) {

@@ -1,22 +1,26 @@
-import { type GearItem, type Item, type ItemSlot, MAX_POTION_STACK, SLOTS, makePotion } from '../data/items';
+import { type EquipSlot, type GearItem, type Item, EQUIP_SLOTS, MAX_POTION_STACK, SLOTS, makePotion } from '../data/items';
 
 export const BAG_SIZE = 20;
 
-/** Run-long inventory: a fixed-size bag plus one item per equipment slot. Pure data + helpers. */
+/**
+ * Run-long inventory: a fixed-size bag plus one item per equipment slot. `equipped.weapon` is the
+ * active weapon set and `equipped.weapon2` the swap set (its stats don't count). Pure data + helpers.
+ */
 export interface Inventory {
   bag: (Item | null)[];
-  equipped: Record<ItemSlot, GearItem | null>;
+  equipped: Record<EquipSlot, GearItem | null>;
 }
 
 export function createInventory(startingPotions = 2): Inventory {
   const inv: Inventory = {
     bag: new Array<Item | null>(BAG_SIZE).fill(null),
-    equipped: Object.fromEntries(SLOTS.map((s) => [s, null])) as Record<ItemSlot, GearItem | null>,
+    equipped: Object.fromEntries(EQUIP_SLOTS.map((s) => [s, null])) as Record<EquipSlot, GearItem | null>,
   };
   if (startingPotions > 0) addItem(inv, makePotion(startingPotions));
   return inv;
 }
 
+/** Gear that counts toward stats — everything equipped except the swap weapon. */
 export const equippedGear = (inv: Inventory): GearItem[] =>
   SLOTS.map((s) => inv.equipped[s]).filter((g): g is GearItem => !!g);
 
@@ -40,17 +44,28 @@ export function addItem(inv: Inventory, item: Item): boolean {
   return true;
 }
 
-/** Equip gear from a bag slot, swapping whatever was equipped back into that bag slot. */
-export function equipFromBag(inv: Inventory, bagIndex: number): boolean {
+/**
+ * Equip gear from a bag slot, swapping whatever was equipped back into that bag slot.
+ * `toSwapSet` puts a weapon into the swap set instead of the active one.
+ */
+export function equipFromBag(inv: Inventory, bagIndex: number, toSwapSet = false): boolean {
   const item = inv.bag[bagIndex];
   if (item?.kind !== 'gear') return false;
-  inv.bag[bagIndex] = inv.equipped[item.slot];
-  inv.equipped[item.slot] = item;
+  const slot: EquipSlot = item.slot === 'weapon' && toSwapSet ? 'weapon2' : item.slot;
+  inv.bag[bagIndex] = inv.equipped[slot];
+  inv.equipped[slot] = item;
+  return true;
+}
+
+/** Exchange the active and swap weapon sets. Returns false if there's no swap weapon. */
+export function swapWeaponSets(inv: Inventory): boolean {
+  if (!inv.equipped.weapon2) return false;
+  [inv.equipped.weapon, inv.equipped.weapon2] = [inv.equipped.weapon2, inv.equipped.weapon];
   return true;
 }
 
 /** Move equipped gear into the first free bag slot. Returns false if the bag is full. */
-export function unequip(inv: Inventory, slot: ItemSlot): boolean {
+export function unequip(inv: Inventory, slot: EquipSlot): boolean {
   const item = inv.equipped[slot];
   if (!item) return false;
   const free = inv.bag.indexOf(null);
