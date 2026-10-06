@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import type { ClassDef } from '../data/classes';
+import type { WeaponDef } from '../data/weapons';
 import type { CombatWorld } from '../combat/world';
 import { isInvulnerable, playerTuning, type PlayerState } from '../systems/player';
-import { instantiateCharacter } from './assets';
+import { instantiateCharacter, showHandProps } from './assets';
 import { AnimatedModel, impactTimeScale } from './animatedModel';
 import { has } from '../combat/status';
 
@@ -17,6 +18,7 @@ export class PlayerView {
   private visualRoot: THREE.Object3D | null = null;
   private materials: THREE.MeshStandardMaterial[] = [];
   private cls: ClassDef | null = null;
+  private weapon: WeaponDef | null = null;
   private wasDodging = false;
   private stealthed = false;
   private wasDead = false;
@@ -34,20 +36,21 @@ export class PlayerView {
     scene.add(this.group);
   }
 
-  setClass(cls: ClassDef) {
-    if (this.cls === cls && (this.model || this.capsule.parent)) return;
+  setClass(cls: ClassDef, weapon: WeaponDef = cls.weapons[0]) {
+    if (this.cls === cls && (this.model || this.capsule.parent)) return this.setWeapon(weapon);
     this.cls = cls;
+    this.weapon = weapon;
     if (this.visualRoot) this.group.remove(this.visualRoot);
     this.model?.dispose();
     this.model = null;
     this.group.remove(this.capsule);
 
-    const inst = instantiateCharacter(cls.visual);
+    const inst = instantiateCharacter({ ...cls.visual, keep: weapon.keep });
     if (inst) {
       this.visualRoot = inst.root;
       this.materials = inst.materials;
       this.model = new AnimatedModel(inst.root, inst.clips);
-      this.model.setBase(cls.visual.idle);
+      this.model.setBase(this.idleClip());
       this.group.add(inst.root);
     } else {
       this.visualRoot = null;
@@ -55,6 +58,17 @@ export class PlayerView {
       this.group.add(this.capsule);
     }
     this.resetRun();
+  }
+
+  /** Swap the held props (and idle stance) to another weapon of the same class. */
+  setWeapon(weapon: WeaponDef) {
+    if (this.weapon === weapon) return;
+    this.weapon = weapon;
+    if (this.visualRoot) showHandProps(this.visualRoot, weapon.keep);
+  }
+
+  private idleClip() {
+    return this.weapon?.idle ?? this.cls!.visual.idle;
   }
 
   /** Clear per-run animation state (new floor / new run). */
@@ -119,7 +133,7 @@ export class PlayerView {
       else if (fwd < -0.5) m.setBase('Walking_Backwards', rate * 1.3);
       else m.setBase(right > 0 ? 'Running_Strafe_Right' : 'Running_Strafe_Left', rate);
     } else {
-      m.setBase(cls.visual.idle);
+      m.setBase(this.idleClip());
     }
 
     // Brief white flash while invulnerable so i-frames are readable.

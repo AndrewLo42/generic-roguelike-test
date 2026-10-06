@@ -17,7 +17,7 @@ const [cx, cy] = roomCenter(d.rooms[d.startRoom]);
 const c = tileToWorld(cx, cy);
 const rogue = classById('rogue')!;
 
-function setup(kit: SkillDef[] = rogue.kit) {
+function setup(kit: SkillDef[] = rogue.weapons[0].kit) {
   const stats = computeStats({}, rogue);
   stats.critChance = 0;
   const p = createPlayer(c.x, c.z, stats);

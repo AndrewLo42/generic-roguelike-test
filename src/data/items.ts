@@ -1,5 +1,6 @@
 import type { Rng } from '../core/rng';
 import type { PlayerStats } from '../combat/stats';
+import { weaponFor, weaponsFor } from './weapons';
 
 export type ItemSlot = 'weapon' | 'head' | 'chest' | 'boots' | 'trinket';
 export type ItemRarity = 'common' | 'magic' | 'rare' | 'epic';
@@ -22,6 +23,8 @@ export interface GearItem {
   level: number;
   /** Implicit (from the base type) first, then rolled affixes. */
   affixes: Affix[];
+  /** Weapons only: weapon type id (see data/weapons.ts) — decides the weapon skills. */
+  weaponType?: string;
 }
 
 export interface PotionItem {
@@ -108,12 +111,6 @@ const PREFIX: Record<ItemRarity, string[]> = {
   epic: ['Ancient', 'Mythic', 'Dread', 'Celestial'],
 };
 
-const WEAPON_BASES: Record<string, { names: string[]; icon: string }> = {
-  warrior: { names: ['Greatsword', 'Axe', 'Warhammer', 'Mace'], icon: '⚔' },
-  ranger: { names: ['Longbow', 'Shortbow', 'Recurve Bow'], icon: '🏹' },
-  mage: { names: ['Staff', 'Wand', 'Scepter', 'Focus'], icon: '🪄' },
-  rogue: { names: ['Daggers', 'Twin Blades', 'Kris', 'Stilettos'], icon: '🗡' },
-};
 const ARMOR_BASES: Record<Exclude<ItemSlot, 'weapon'>, string[]> = {
   head: ['Helm', 'Hood', 'Circlet', 'Cowl'],
   chest: ['Hauberk', 'Robe', 'Jerkin', 'Breastplate'],
@@ -152,6 +149,12 @@ export function makePotion(count = 1): PotionItem {
   return { uid: newUid(), kind: 'potion', name: 'Health Potion', icon: '🧪', rarity: 'common', count };
 }
 
+/** Statless weapon every run starts with (one per weapon type) so each weapon's skills are always reachable. */
+export function makeStarterWeapon(classId: string, weaponId: string): GearItem {
+  const w = weaponFor(classId, weaponId);
+  return { uid: newUid(), kind: 'gear', slot: 'weapon', name: `Worn ${w.baseNames[0]}`, icon: w.icon, rarity: 'common', level: 1, affixes: [], weaponType: w.id };
+}
+
 /**
  * Roll a gear item. Each slot has an implicit stat (weapon: damage, armor pieces: armor + HP,
  * boots: armor + speed); rarity adds random affixes and scales every value.
@@ -161,12 +164,13 @@ export function generateGear(rng: Rng, level: number, classId: string, rarity: I
   const m = RARITY_MULT[rarity];
   const scale = (v: number) => Math.max(1, Math.round(v * m));
 
-  let base: string, icon: string;
+  let base: string, icon: string, weaponType: string | undefined;
   const implicit: Affix[] = [];
   if (slot === 'weapon') {
-    const w = WEAPON_BASES[classId] ?? WEAPON_BASES.warrior;
-    base = pick(rng, w.names);
+    const w = pick(rng, weaponsFor(classId));
+    base = pick(rng, w.baseNames);
     icon = w.icon;
+    weaponType = w.id;
     implicit.push({ stat: 'damagePct', value: scale(6 + level * 1.5) });
   } else {
     base = pick(rng, ARMOR_BASES[slot]);
@@ -192,5 +196,6 @@ export function generateGear(rng: Rng, level: number, classId: string, rarity: I
     uid: newUid(), kind: 'gear', slot, rarity, level, icon,
     name: `${pick(rng, PREFIX[rarity])} ${base}`,
     affixes: [...implicit, ...rolled],
+    ...(weaponType && { weaponType }),
   };
 }
