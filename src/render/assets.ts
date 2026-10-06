@@ -42,6 +42,13 @@ export async function loadAssets(onProgress?: (done: number, total: number) => v
 }
 
 export const hasCharacter = (name: string) => characters.has(name);
+
+/** Props parented to hand slots are optional loadout pieces: show only the ones named in `keep`. */
+export function showHandProps(root: THREE.Object3D, keep: string[]) {
+  root.traverse((o) => {
+    if (o.parent?.name.startsWith('handslot')) o.visible = keep.includes(o.name);
+  });
+}
 export const getPiece = (name: string) => pieces.get(name);
 
 /** All meshes of a static piece, with their transforms baked relative to the piece root. */
@@ -81,9 +88,8 @@ export function instantiateCharacter(visual: ModelVisual): { root: THREE.Object3
     let mat = matCache.get(src);
     if (!mat) { mat = src.clone(); matCache.set(src, mat); materials.push(mat); }
     m.material = mat;
-    // Props parented to hand slots are optional loadout pieces.
-    if (o.parent?.name.startsWith('handslot') && !visual.keep.includes(o.name)) o.visible = false;
   });
+  showHandProps(root, visual.keep);
 
   if (visual.weapon) {
     const src = characters.get(visual.weapon.from)?.scene.getObjectByName(visual.weapon.mesh) as THREE.Mesh | undefined;

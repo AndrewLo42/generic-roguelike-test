@@ -4,6 +4,7 @@ import {
 } from '../data/items';
 import { type PlayerStats, armorFactor } from '../combat/stats';
 import type { ClassDef } from '../data/classes';
+import { weaponFor } from '../data/weapons';
 import type { Inventory } from '../game/inventory';
 import { type SkillsActions, type SkillsContext, renderSkillsTab, renderTraitsTab } from './skillsMenu';
 
@@ -164,10 +165,17 @@ function showDetails(c: PauseContext, item: Item | null, isEquipped: boolean) {
     compare = `<div class="d-sub">${current ? `vs. equipped <span style="color:${ITEM_RARITY_COLOR[current.rarity]}">${current.name}</span>` : 'Slot is empty'}</div>`;
     compare += diffLines(affixTotals(g), affixTotals(current));
   }
+  let weaponLine = '';
+  if (g.weaponType) {
+    const w = weaponFor(c.cls.id, g.weaponType);
+    const swaps = !isEquipped && w.id !== c.weapon.id;
+    weaponLine = `<div class="d-line weapon-type">${w.icon} ${w.name} — skills: ${w.skills.map((sk) => `<span style="color:${sk.color}" title="${sk.name}">${sk.icon}</span>`).join(' ')}</div>` +
+      (swaps ? `<div class="d-line up">⇄ Equipping changes your weapon skills</div>` : '');
+  }
   detailsEl.innerHTML =
     `<div class="d-name" style="color:${color}">${g.icon} ${g.name}</div>` +
     `<div class="d-meta">${cap(g.rarity)} ${SLOT_LABEL[g.slot]} · Level ${g.level}</div>` +
-    lines + compare +
+    weaponLine + lines + compare +
     `<div class="d-hint">${isEquipped ? 'Click to unequip' : 'Click to equip · right-click to discard'}</div>`;
 }
 
@@ -175,7 +183,7 @@ const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 /** Implicit affixes (from the base type) come first: 1 for weapons/head/chest/boots pairs, 0 for trinkets. */
 function implicitCount(g: GearItem) {
-  return g.slot === 'weapon' ? 1 : g.slot === 'trinket' ? 0 : 2;
+  return g.slot === 'weapon' ? Math.min(1, g.affixes.length) : g.slot === 'trinket' ? 0 : 2;
 }
 
 function diffLines(next: Partial<Record<AffixStat, number>>, cur: Partial<Record<AffixStat, number>>) {

@@ -1,11 +1,14 @@
 import type { ClassDef } from '../data/classes';
 import type { SkillDef } from '../data/skills';
+import type { WeaponDef } from '../data/weapons';
 import { COMBOS, ELEMENT_CSS, ELEMENT_ICON, type FieldElement, type Finisher, FINISHER_ICON } from '../data/combos';
 import { TRAIT_TIERS, type TraitPicks } from '../data/traits';
 import { STATUS } from '../combat/status';
 
 export interface SkillsContext {
   cls: ClassDef;
+  /** Equipped weapon type — decides which weapon skills are in the pool. */
+  weapon: WeaponDef;
   loadout: SkillDef[];
   traits: TraitPicks;
 }
@@ -56,10 +59,19 @@ export function renderSkillsTab(c: SkillsContext, a: SkillsActions) {
     row.appendChild(el);
   });
 
-  // Pool
+  // Pool: the equipped weapon's skills, then class utilities (usable with any weapon).
   const pool = $('skill-pool');
   pool.innerHTML = '';
-  for (const s of c.cls.pool) {
+  const others = c.cls.weapons.filter((w) => w !== c.weapon).map((w) => `${w.icon} ${w.name}`).join(', ');
+  const header = (html: string) => {
+    const h = document.createElement('div');
+    h.className = 'pool-head';
+    h.innerHTML = html;
+    pool.appendChild(h);
+  };
+  for (const s of [...c.weapon.skills, ...c.cls.utilities]) {
+    if (s === c.weapon.skills[0]) header(`${c.weapon.icon} <b>${c.weapon.name}</b> skills <small>— equip a ${others} in the Inventory tab for different ones</small>`);
+    if (s === c.cls.utilities[0]) header(`<b>Utility</b> skills <small>— any weapon</small>`);
     const at = c.loadout.findIndex((l) => l.id === s.id);
     const el = document.createElement('div');
     el.className = 'scard' + (at >= 0 ? ' equipped' : '');

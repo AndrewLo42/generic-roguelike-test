@@ -19,9 +19,22 @@ npm test           # generator determinism / connectivity tests
 | Rogue (assassin, +8% speed) | 210 | Twin Strikes (poison) · Backstab (+60% from behind) · Shadowstep (teleport behind + 1s Stealth) · Smoke Bomb (smoke field, blinds) · Death Blossom (poison whirl) |
 | Mage (caster) | 170 | Arcane Bolt · Flame Burst (fast small AoE) · Meteor (big slow AoE, fire field) · Frost Nova (blast + ice field) · Blink (teleport forward) |
 
+**Weapons (GW2-style):** each class has weapon types, and the equipped weapon decides your *weapon skills*; *utility skills* belong to the class and work with any weapon. Every run starts with a statless starter of each type (the last one you used is equipped, the rest are in the bag), so swapping is always one click in the inventory (P). Dropped weapons roll any of your class's types, and their tooltip shows the skills they bring. Loadouts are remembered per class **and** weapon. Defined in `src/data/weapons.ts`.
+
+| Class | Weapon | Weapon skills | Utilities (any weapon) |
+|---|---|---|---|
+| Warrior | Greatsword | Cleave, Heavy Strike, Savage Leap, Rush, Whirling Strike, Earthshaker | Flame Brand, Battle Standard, Warhorn |
+| | **Sword & Shield** | Sword Slash (Vulnerability), Lunge (leap, Chill), Shield Bash (blast, Blind), Shield Throw (projectile), Shield Stance (Protection + Regen) | |
+| Ranger | Crossbow | Long Shot, Quick Shot, Volley, Barrage, Point Blank Shot | Fire Trap, Frost Trap, Sun Flare, Disengage, Hunter's Call |
+| | **Hunting Knives** | Hunting Slash, Pounce (leap, Vulnerability), Crosscut (whirl), Throw Knives (Chill), Predator's Strike (+30% from behind) | |
+| Mage | Staff | Arcane Bolt, Ice Shard, Flame Burst, Meteor, Arcane Well, Sunfire | Frost Nova, Arcane Blast, Blink |
+| | **Wand & Tome** | Wand Bolt (fast), Arcane Missiles, Withering Hex, Searing Ray (Burning line), Tome of Warding (Light field) | |
+| Rogue | Daggers | Twin Strikes, Backstab, Crippling Strike, Death Blossom, Shadow Burst | Shadowstep, Smoke Bomb, Fan of Knives, Vanish, Adrenaline Rush |
+| | **Hand Crossbow** | Quick Bolt, Headshot (Blind), Unload, Black Powder (smoke field), Tumble | |
+
 There are no dedicated healing skills. Sustain comes from **Regeneration** (2.5% max HP/s) on several skills — Warhorn, Battle Standard, Hunter's Call, Disengage, Frost Nova, Blink, Sunfire — plus lifesteal, light-field combos and scarce **potions (H)**.
 
-**Skill loadouts (K):** each class has a pool of 9–10 skills; in the pause menu's **Skills** tab click a slot, then any skill to put it there (fully free — any skill in any slot; picking one already slotted swaps them). Loadouts are remembered per class.
+**Skill loadouts (K):** your pool is the equipped weapon's skills plus the class utilities; in the pause menu's **Skills** tab click a slot, then any skill to put it there (fully free — any skill in any slot; picking one already slotted swaps them). Loadouts are remembered per class and weapon.
 
 **Combos (GW2 fields + finishers):** some skills leave an elemental **field** (🔥 fire, ❄ ice, ☀ light, ✦ arcane) that also pulses a small effect each second; others are **finishers** (➹ projectile, 💥 blast, ⤴ leap, 🌀 whirl). Shoot through a field or use a finisher inside one to trigger a combo — e.g. Meteor's fire field + Frost Nova (blast) = Fire Blast (Might); Fire Trap + Volley = burning arrows; Battle Standard (light) + Whirling Strike = Healing Whirl. The Skills tab has the full 4×4 combo table with the ones your current loadout can do highlighted. A skill never combos with its own field. Data: `src/data/combos.ts`; effects: `triggerCombo` in `src/systems/combat.ts`.
 
@@ -49,7 +62,7 @@ src/
   core/            rng (seeded mulberry32), input (polled per tick)
   world/dungeon/   generator.ts (pure data, no Three) + meshBuilder.ts (InstancedMesh, ~2 draw calls)
   world/collision  circle-vs-tile-grid push-out
-  data/            skills.ts, classes.ts, enemies.ts, boons.ts, items.ts — tune numbers here
+  data/            skills.ts, weapons.ts, classes.ts, enemies.ts, boons.ts, items.ts — tune numbers here
   game/            inventory.ts (bag + equipment, pure data)
   combat/          world.ts (plain-data combat state), shapes.ts (circle/cone hit tests)
   systems/         player (movement, dodge, jump, leap), camera (spring arm),
