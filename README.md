@@ -1,5 +1,5 @@
 # Three.js Roguelike (PoC)
-
+ 
 GW2-style action combat + seeded procedural dungeons, built with Three.js + TypeScript + Vite.
 
 ```bash
