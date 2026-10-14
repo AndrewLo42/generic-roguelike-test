@@ -7,6 +7,7 @@
     "assets-src/meshy/warrior/basic_running.glb",
     "assets-src/meshy/warrior/basic_walking.glb"
   ],
+  "selfrig": "assets-src/meshy/warrior/selfrig.glb",
   "textures": {
     "baseColor": 2048,
     "normal": 1024,
@@ -129,6 +130,27 @@
       "radius": 0.028,
       "wrap": 230
     }
+  },
+  "fingers": {
+    "curl": [
+      80,
+      90,
+      70
+    ],
+    "thumb": [
+      [
+        -35,
+        20
+      ],
+      [
+        0,
+        30
+      ],
+      [
+        0,
+        25
+      ]
+    ]
   },
   "props": {
     "items": {

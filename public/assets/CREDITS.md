@@ -10,7 +10,8 @@ original; the style brief is in `docs/art-bible.md`. Prompts, settings and task 
 
 | File | Contents |
 |---|---|
-| `meshy/Warrior.glb` | Warrior character (northern mercenary), Meshy auto-rig + 19 Meshy library animations (renamed/trimmed), and his greatsword, arming sword and round shield |
+| `meshy/Warrior.glb` | Warrior character (northern mercenary), rigged by our `tools/blender/auto_rig.py`, 19 Meshy library animations (retargeted, renamed, trimmed), and his greatsword, arming sword and round shield |
+| `meshy/BattleMage.glb` | Mage character (robed battle mage), rigged by `auto_rig.py`, reusing the Warrior's animations; holds KayKit's staff, wand and spellbook (CC0, below) as stand-ins |
 
 ## KayKit by Kay Lousberg — www.kaylousberg.com
 
@@ -18,7 +19,7 @@ License: CC0 1.0 (see `kaykit/licenses/`). Downloaded from the official reposito
 
 | Pack | Files used | Used for |
 |---|---|---|
-| Character Pack: Adventurers 1.0 | `characters/Knight.glb`, `Rogue_Hooded.glb`, `Rogue.glb`, `Mage.glb` | Ranger, Rogue, Mage (models, weapons, animations); Knight's weapons for skeleton enemies |
+| Character Pack: Adventurers 1.0 | `characters/Knight.glb`, `Rogue_Hooded.glb`, `Rogue.glb`, `Mage.glb` | Ranger, Rogue (models, weapons, animations); Knight's and Mage's weapons for skeleton enemies; Mage's staff, wand and spellbook baked into `meshy/BattleMage.glb` |
 | Character Pack: Skeletons 1.0 | `characters/Skeleton_Minion.glb`, `Skeleton_Warrior.glb`, `Skeleton_Mage.glb` | Skeleton, Bone Brute, Hexer |
 | Dungeon Remastered 1.0 | `dungeon/*.glb` (floor tiles, wall, pillar, torch, chests, props) | Dungeon geometry and chests |
 

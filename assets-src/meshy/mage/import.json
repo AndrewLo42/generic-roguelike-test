@@ -1,0 +1,204 @@
+{
+  "out": "public/assets/meshy/BattleMage.glb",
+  "rigged": "assets-src/meshy/warrior/rigged_01a11324.glb",
+  "anims": [
+    "assets-src/meshy/warrior/anims_batch1.glb",
+    "assets-src/meshy/warrior/anims_batch2.glb",
+    "assets-src/meshy/warrior/basic_running.glb",
+    "assets-src/meshy/warrior/basic_walking.glb"
+  ],
+  "selfrig": "assets-src/meshy/mage/selfrig.glb",
+  "textures": {
+    "baseColor": 2048,
+    "normal": 1024,
+    "metallicRoughness": 512
+  },
+  "clips": {
+    "Idle": {
+      "src": "Combat_Stance"
+    },
+    "Running_A": {
+      "src": "running"
+    },
+    "Walking_A": {
+      "src": "walking_man"
+    },
+    "Walking_Backwards": {
+      "src": "Walk_Backward_with_Sword"
+    },
+    "Jump_Idle": {
+      "src": "Regular_Jump",
+      "hold": 0.79,
+      "hold_root": 0,
+      "hold_upper": "Combat_Stance",
+      "hold_upper_t": 0.5
+    },
+    "Dodge_Forward": {
+      "src": "Roll_Dodge_1"
+    },
+    "Dodge_Backward": {
+      "src": "Roll_Dodge_1",
+      "reverse": true
+    },
+    "Dodge_Right": {
+      "src": "Roll_Dodge_4",
+      "start": 0,
+      "end": 1.7
+    },
+    "Dodge_Left": {
+      "src": "Roll_Dodge_4",
+      "start": 0,
+      "end": 1.7,
+      "mirror": true
+    },
+    "Hit_A": {
+      "src": "Hit_Reaction",
+      "start": 0,
+      "end": 0.8
+    },
+    "Death_A": {
+      "src": "dying_backwards"
+    },
+    "2H_Melee_Attack_Slice": {
+      "src": "Charged_Slash"
+    },
+    "2H_Melee_Attack_Chop": {
+      "src": "Charged_Axe_Chop",
+      "start": 3.0,
+      "end": 5.4
+    },
+    "2H_Melee_Attack_Spin": {
+      "src": "Axe_Spin_Attack"
+    },
+    "Leap_Attack": {
+      "src": "Basic_Jump",
+      "start": 1.0,
+      "end": 3.2
+    },
+    "Charge": {
+      "src": "Standard_Forward_Charge"
+    },
+    "1H_Melee_Attack_Slice_Diagonal": {
+      "src": "Double_Combo_Attack",
+      "start": 0,
+      "end": 1.3
+    },
+    "1H_Melee_Attack_Stab": {
+      "src": "Attack",
+      "start": 0.4,
+      "end": 1.8
+    },
+    "Block": {
+      "src": "Block1",
+      "start": 0,
+      "end": 1.5
+    },
+    "Throw": {
+      "src": "Over_Shoulder_Throw",
+      "start": 2.3,
+      "end": 4.0
+    },
+    "Cheer": {
+      "src": "Sword_Shout",
+      "start": 0,
+      "end": 2.4
+    },
+    "Use_Item": {
+      "src": "Stand_and_Drink",
+      "start": 0,
+      "end": 2.5
+    }
+  },
+  "fists": {
+    "RightHand": {
+      "palm": [
+        -1,
+        0,
+        0
+      ],
+      "knuckle": 0.105,
+      "radius": 0.028,
+      "wrap": 230
+    },
+    "LeftHand": {
+      "palm": [
+        1,
+        0,
+        0
+      ],
+      "knuckle": 0.105,
+      "radius": 0.028,
+      "wrap": 230
+    }
+  },
+  "fingers": {
+    "curl": [
+      80,
+      90,
+      70
+    ],
+    "thumb": [
+      [
+        -35,
+        20
+      ],
+      [
+        0,
+        30
+      ],
+      [
+        0,
+        25
+      ]
+    ],
+    "LeftHand": {
+      "curl": [
+        15,
+        20,
+        10
+      ],
+      "thumb": [
+        [
+          -10,
+          5
+        ],
+        [
+          0,
+          10
+        ],
+        [
+          0,
+          5
+        ]
+      ]
+    }
+  },
+  "props": {
+    "from": "public/assets/kaykit/characters/Mage.glb",
+    "items": {
+      "2H_Staff": {
+        "hand": "RightHand",
+        "length": 1.7,
+        "grip": "fist",
+        "grip_at": 0.4,
+        "head": "wide"
+      },
+      "1H_Wand": {
+        "hand": "RightHand",
+        "length": 0.4,
+        "grip": "fist",
+        "grip_at": 0.2
+      },
+      "Spellbook_open": {
+        "hand": "LeftHand",
+        "length": 0.34,
+        "grip": "palm",
+        "rot": [
+          0,
+          0,
+          180
+        ]
+      }
+    }
+  }
+}

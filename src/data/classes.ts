@@ -46,7 +46,7 @@ export const CLASSES: ClassDef[] = [
     weapons: weaponsFor('warrior'),
     utilities: [L.flameBrand, L.banner, L.warhorn],
     utilityKit: [L.flameBrand, L.banner, L.warhorn],
-    // Our Meshy-made Warrior (assets-src/meshy/warrior). Stand-in KayKit weapons until Meshy ones exist.
+    // Our Meshy-made Warrior (assets-src/meshy/warrior), self-rigged, with his Meshy-made weapons.
     visual: { model: 'Warrior', rig: 'meshy', scale: 1.35, keep: [], idle: 'Idle', move: 'Running_A' },
   },
   {
@@ -65,7 +65,8 @@ export const CLASSES: ClassDef[] = [
     weapons: weaponsFor('mage'),
     utilities: [L.frostNova, L.arcaneBlast, L.blink],
     utilityKit: [L.frostNova, L.arcaneBlast, L.blink],
-    visual: { model: 'Mage', scale: 0.8, keep: [], idle: 'Idle', move: 'Running_A' },
+    // Our Meshy-made battle mage (assets-src/meshy/mage), self-rigged; KayKit staff/wand/book as stand-ins.
+    visual: { model: 'BattleMage', rig: 'meshy', scale: 1.35, keep: [], idle: 'Idle', move: 'Running_A' },
   },
   {
     id: 'rogue', name: 'Rogue', role: 'Assassin', icon: '🗡', color: 0x6a4a8a, css: '#b9a0ff',

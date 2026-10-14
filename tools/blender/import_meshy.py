@@ -24,6 +24,10 @@ argv = sys.argv[sys.argv.index('--') + 1:]
 cfg_path = argv[0]
 preview = argv[argv.index('--preview') + 1] if '--preview' in argv else None
 cfg = json.load(open(cfg_path))
+if '--out' in argv:
+    cfg['out'] = argv[argv.index('--out') + 1]
+if '--selfrig' in argv:  # use our own rig (tools/blender/auto_rig.py) instead of Meshy's
+    cfg['selfrig'] = argv[argv.index('--selfrig') + 1]
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
@@ -182,6 +186,86 @@ for a in list(bpy.data.actions):
     if a.name not in keep:
         bpy.data.actions.remove(a)
 
+# ---------------- retarget onto our own rig ----------------
+# With `selfrig` (an auto_rig.py output: same body bone names + fingers), the clips built above on Meshy's
+# rig are re-baked onto ours: each bone gets the same world-space rotation *change from its rest pose* as
+# on the source (so differing rest orientations don't matter), and the hips the same translation change.
+if cfg.get('selfrig'):
+    src_arm, src_mesh = arm, mesh
+    before = {o.name for o in bpy.data.objects}
+    acts_before = set(bpy.data.actions.keys())
+    bpy.ops.import_scene.gltf(filepath=cfg['selfrig'])
+    for a in [a for a in bpy.data.actions if a.name not in acts_before]:
+        bpy.data.actions.remove(a)
+    new = new_objects(before)
+    tgt = next(o for o in new if o.type == 'ARMATURE')
+    tgt_mesh = next(o for o in new if o.type == 'MESH')
+    if not tgt.animation_data:
+        tgt.animation_data_create()
+
+    def rot_of(m):
+        return m.to_3x3().normalized().to_quaternion()
+
+    src_rest = {b.name: rot_of(src_arm.matrix_world @ b.matrix_local) for b in src_arm.data.bones}
+    tgt_rest_w = {b.name: rot_of(tgt.matrix_world @ b.matrix_local) for b in tgt.data.bones}
+    src_hips0 = src_arm.matrix_world @ src_arm.data.bones['Hips'].head_local
+    tgt_hips0 = tgt.matrix_world @ tgt.data.bones['Hips'].head_local
+    tgt_inv = tgt.matrix_world.inverted()
+    order = sorted(tgt.data.bones, key=lambda b: len(b.parent_recursive))
+    for pb in tgt.pose.bones:
+        pb.rotation_mode = 'QUATERNION'
+    retargeted = []
+    for act in canon:
+        assign(src_arm, act)
+        f0, f1 = act.frame_range
+        frames = list(range(int(f0), int(math.ceil(f1)) + 1))
+        out = bpy.data.actions.new(act.name + '_rt')
+        out.use_fake_user = True
+        assign(tgt, out)
+        for f in frames:
+            sc.frame_set(f)
+            pose = {}  # target armature-space pose matrices
+            for b in order:
+                spb = src_arm.pose.bones.get(b.name)
+                rest = b.matrix_local
+                if b.parent:
+                    par = pose[b.parent.name]
+                    rel = b.parent.matrix_local.inverted() @ rest
+                    chain = par @ rel  # where the bone sits if it doesn't rotate relative to its parent
+                else:
+                    chain = rest
+                if spb is not None:
+                    delta = rot_of(src_arm.matrix_world @ spb.matrix) @ src_rest[b.name].inverted()
+                    rw = delta @ tgt_rest_w[b.name]
+                    r_arm = rot_of(tgt_inv) @ rw
+                    loc = chain.to_translation()
+                    if b.name == 'Hips':
+                        dp = (src_arm.matrix_world @ spb.head) - src_hips0
+                        loc = tgt_inv @ (tgt_hips0 + dp)
+                    pose[b.name] = Matrix.LocRotScale(loc, r_arm, None)
+                else:
+                    pose[b.name] = chain  # fingers, leaf bones: follow the parent
+                if spb is None:
+                    continue  # fingers / leaf bones: no source motion; poses are added later (fists)
+                pb = tgt.pose.bones[b.name]
+                base = (b.parent.matrix_local.inverted() @ rest) if b.parent else rest
+                parent_pose = pose[b.parent.name] if b.parent else Matrix.Identity(4)
+                basis = base.inverted() @ parent_pose.inverted() @ pose[b.name]
+                pb.rotation_quaternion = basis.to_quaternion()
+                pb.keyframe_insert('rotation_quaternion', frame=f)
+                if b.name == 'Hips':
+                    pb.location = basis.to_translation()
+                    pb.keyframe_insert('location', frame=f)
+        name = act.name
+        bpy.data.actions.remove(act)
+        out.name = name
+        retargeted.append(out)
+    canon = retargeted
+    for o in (src_mesh, src_arm):
+        bpy.data.objects.remove(o, do_unlink=True)
+    arm, mesh = tgt, tgt_mesh
+    print(f'RETARGET {len(canon)} clips onto {cfg["selfrig"]}')
+
 # ---------------- textures ----------------
 for img in bpy.data.images:
     n = img.name.lower()
@@ -212,7 +296,54 @@ def hand_frame(name):
 # (it points forward in the A-pose). The thumb curls too, which reads as a thumb wrapped over the fingers.
 # Records each fist's grip axis centre (bone space) for placing weapons.
 fists = {}
-for hand, spec in (cfg.get('fists') or {}).items():
+FINGERS = ('Index', 'Middle', 'Ring', 'Pinky')
+if cfg.get('selfrig'):
+    # Real finger bones: key a fist into every clip (Meshy clips never move fingers) and derive each fist's
+    # grip centre from the finger bones instead of bending the mesh.
+    fcfg = cfg.get('fingers', {})
+    curl = [math.radians(a) for a in fcfg.get('curl', [70, 80, 60])]
+    # Thumb joints: [x, z] degrees — x folds it across the fingers (toward -Z), z curls it toward the palm.
+    thumb = [(math.radians(x), math.radians(z)) for x, z in fcfg.get('thumb', [[0, 15], [0, 25], [0, 20]])]
+    for hand, spec in (cfg.get('fists') or {}).items():
+        palm = Vector(spec['palm'])
+        sign = 1 if palm.x < 0 else -1  # rotating about +Z moves +Y toward -X
+        H = hand_frame(hand); Hi = H.inverted()
+        b1 = {f: Hi @ (arm.matrix_world @ arm.data.bones[f'{hand}{f}1'].head_local) for f in FINGERS}
+        length = sum((arm.data.bones[f'{hand}Middle{k}'].length for k in (1, 2, 3))) * arm.matrix_world.to_scale().x
+        R = length / sum(curl)
+        y0 = b1['Middle'].y
+        s_c = b1['Middle'].dot(palm)
+        z_c = (b1['Index'].z + b1['Pinky'].z) / 2
+        fists[hand] = palm * (s_c + R) + Vector((0, y0, z_c))
+        # Close the fan first: rotate each finger's base in the palm plane (about its X, the palm normal)
+        # by its rest angle from the hand's length axis, so the curled fingers sit together.
+        # Per-hand overrides, e.g. "LeftHand": {"curl": [...]} for an open hand holding a book.
+        hc = fcfg.get(hand, {})
+        h_curl = [math.radians(x) for x in hc['curl']] if 'curl' in hc else curl
+        h_thumb = [(math.radians(x), math.radians(z)) for x, z in hc['thumb']] if 'thumb' in hc else thumb
+        poses = {}
+        for f in FINGERS:
+            b = arm.data.bones[f'{hand}{f}1']
+            d = (Hi.to_3x3() @ (arm.matrix_world.to_3x3() @ (b.tail_local - b.head_local))).normalized()
+            fan = math.atan2(d.z, d.y) * fcfg.get('close', 0.9)
+            for k in (1, 2, 3):
+                adduct = Euler((-fan if k == 1 else 0, 0, 0)).to_quaternion()
+                poses[f'{hand}{f}{k}'] = Euler((0, 0, sign * h_curl[k - 1])).to_quaternion() @ adduct
+        poses.update({f'{hand}Thumb{k}': Euler((h_thumb[k - 1][0], 0, sign * h_thumb[k - 1][1])).to_quaternion() for k in (1, 2, 3)})
+        for act in canon:
+            assign(arm, act)
+            for name, q in poses.items():
+                pb = arm.pose.bones[name]
+                pb.rotation_mode = 'QUATERNION'
+                pb.rotation_quaternion = q
+                for f in (act.frame_range[0], act.frame_range[1]):
+                    pb.keyframe_insert('rotation_quaternion', frame=f)
+        print(f'FINGERS {hand}: fist keyed into {len(canon)} clips, grip centre {tuple(round(x, 3) for x in fists[hand])}')
+    arm.animation_data.action = None
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+for hand, spec in ({} if cfg.get('selfrig') else (cfg.get('fists') or {})).items():
     H = hand_frame(hand); Hi = H.inverted()
     Mw, Mwi = mesh.matrix_world, mesh.matrix_world.inverted()
     gi = mesh.vertex_groups[hand].index
@@ -267,9 +398,25 @@ if cfg.get('props'):
         bpy.context.collection.objects.link(o)
         o.parent = None
         o.matrix_world = Matrix.Identity(4)
-        # Blade/long axis is the mesh's largest local extent; scale to the target length.
-        bb = [Vector(c) for c in o.bound_box]
-        ext = Vector((max(v[i] for v in bb) - min(v[i] for v in bb) for i in range(3)))
+        # Normalise the prop's axes: longest extent -> Z (blade / shaft), widest remaining -> X (crossguard),
+        # thinnest -> Y. Different sources model props lying along different axes.
+        # Measure from vertices: the cached bound_box is stale right after data.transform().
+        def extents():
+            vs = [v.co for v in o.data.vertices]
+            return Vector((max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)))
+        ext = extents()
+        if spec.get('grip') in ('fist', 'shield', 'palm'):
+            order = sorted(range(3), key=lambda i: ext[i])  # thinnest .. longest
+            ax_z, ax_x = order[2], order[1]
+            ax_y = 3 - ax_z - ax_x
+            if spec.get('grip') == 'shield':  # a shield: thinnest axis is Y (face normal), keep X/Z as they are
+                ax_y = order[0]; ax_x, ax_z = sorted(i for i in range(3) if i != ax_y)
+            rows = [[1.0 if c == a else 0.0 for c in range(3)] for a in (ax_x, ax_y, ax_z)]
+            R = Matrix(rows)
+            if R.determinant() < 0:
+                R[1] = -R[1]
+            o.data.transform(R.to_4x4())
+            ext = extents()
         k = spec['length'] / max(ext)
         o.data.transform(Matrix.Scale(k, 4))
         # Meshy rigs are in centimetres (armature scale 0.01), so place in world space from the hand
@@ -286,12 +433,36 @@ if cfg.get('props'):
                 b = round((v.z - zmin) / (zmax - zmin) * 40)
                 slices[b] = max(slices.get(b, 0), abs(v.x))
             guard_z = zmin + max(slices, key=slices.get) / 40 * (zmax - zmin)
+            # Which end points out of the thumb side (+Z): swords put the blade there (the end away from
+            # the crossguard, i.e. the widest slice); `"head": "wide"` (staffs) puts the wide end there.
+            wide_up = spec.get('head') == 'wide'
+            if (guard_z > (zmin + zmax) / 2) != wide_up:
+                o.data.transform(Matrix.Rotation(math.pi, 4, 'X'))
+                vs = [v.co for v in o.data.vertices]
+                zmin, zmax = min(v.z for v in vs), max(v.z for v in vs)
+                guard_z = zmin + zmax - guard_z
             grip_z = (zmin + guard_z) / 2
+            if 'grip_at' in spec:  # staffs / wands: hold at a fraction of the length from the butt end
+                grip_z = zmin + spec['grip_at'] * (zmax - zmin)
             # Columns = weapon axes in bone space: X (crossguard) -> +Y knuckles, Y -> -X, Z (blade) -> +Z thumb.
             Rb = Matrix(((0, -1, 0, 0), (1, 0, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)))
             twist = Euler([math.radians(x) for x in spec.get('rot', (0, 0, 0))]).to_matrix().to_4x4()
             o.matrix_world = H @ Matrix.Translation(fists[spec['hand']]) @ Rb @ twist @ Matrix.Translation((0, 0, -grip_z))
             print(f'  grip {pname}: pommel {zmin:.3f} guard {guard_z:.3f} -> grip centre z {grip_z:.3f}')
+        elif spec.get('grip') == 'palm':
+            # Flat prop resting on the open palm (e.g. an open book): thinnest axis along the palm normal,
+            # longest across the hand (bone Z), centred on the palm a little past the wrist.
+            palm = Vector(cfg['fists'][spec['hand']]['palm'])
+            vs = [v.co for v in o.data.vertices]
+            ctr = sum(vs, Vector()) / len(vs)
+            thick = max(v.y for v in vs) - min(v.y for v in vs)
+            z_axis = Vector((0, 0, 1)); y_axis = palm
+            x_axis = y_axis.cross(z_axis)
+            Rb = Matrix((x_axis, y_axis, z_axis)).transposed().to_4x4()
+            twist = Euler([math.radians(x) for x in spec.get('rot', (0, 0, 0))]).to_matrix().to_4x4()
+            pos = Vector(spec.get('offset', (0, 0.07, 0))) + palm * (0.02 + thick / 2)
+            o.matrix_world = H @ Matrix.Translation(pos) @ twist @ Rb @ Matrix.Translation(-ctr)
+            print(f'  grip {pname}: on the palm, {thick:.3f} m thick')
         elif spec.get('grip') == 'shield':
             # Centre-grip shield: the handle is the small cluster sticking out furthest from the back
             # (along the thin axis, local Y). Handle -> through the fist (Z), face -> past the knuckles (+Y).
@@ -375,7 +546,7 @@ if preview:
             # Close-up of the gripping hand from two sides, then the full body.
             hb = arm.pose.bones[hand_name]
             hm = arm.matrix_world @ hb.matrix
-            hc = hm @ Vector((0, 10.5, 0))  # knuckle area (bone space is in centimetres)
+            hc = hm @ (Vector((0, 0.105, 0)) / hm.to_scale().x)  # knuckle area (Meshy bone space is in cm)
             cam.data.ortho_scale = 0.6
             for vi, d in enumerate([Vector((0, 0, -1)), Vector((-1, 0, 0))]):
                 dw = (hm.to_3x3() @ d).normalized()
