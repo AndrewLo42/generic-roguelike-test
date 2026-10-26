@@ -1,6 +1,6 @@
 # Art bible
 
-The look we're after: **painterly, heroic-but-grounded fantasy MMO**, in the spirit of Guild Wars 2. We describe that style in our own words and never feed ArenaNet artwork into generation tools, because our assets must be original designs we can ship.
+The look we're after: **rugged, heroic-but-grounded fantasy MMO**, in the spirit of Guild Wars 2. We describe that style in our own words and never feed ArenaNet artwork into generation tools, because our assets must be original designs we can ship.
 
 ## Style pillars
 1. **Painterly materials.** Textures read as hand-painted over a realistic base: soft brushed gradients, painted edge highlights on metal, gentle ambient occlusion in the crevices. No photo-scanned grit and no plastic toy shading.
