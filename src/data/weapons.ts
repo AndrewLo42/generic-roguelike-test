@@ -38,10 +38,10 @@ export const CLASS_WEAPONS: Record<string, WeaponDef[]> = {
   ],
   ranger: [
     {
-      id: 'crossbow', name: 'Crossbow', icon: '🏹', baseNames: ['Crossbow', 'Arbalest', 'Repeater'],
+      id: 'longbow', name: 'Longbow', icon: '🏹', baseNames: ['Longbow', 'Recurve Bow', 'Yew Bow', 'Warbow'],
       skills: [L.longShot, L.quickShot, L.volley, L.barrage, L.pointBlank],
       kit: [L.longShot, L.quickShot, L.volley, L.barrage, L.pointBlank],
-      keep: ['2H_Crossbow'],
+      keep: ['Longbow'],
     },
     {
       id: 'knives', name: 'Hunting Knives', icon: '🔪', baseNames: ['Hunting Knives', 'Skinning Knives', 'Twin Fangs'],

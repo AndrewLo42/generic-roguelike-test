@@ -267,45 +267,147 @@ if cfg.get('selfrig'):
     print(f'RETARGET {len(canon)} clips onto {cfg["selfrig"]}')
 
 # ---------------- procedural aim clips ----------------
-# `"aim": "Right"` on a clip: instead of a library clip, build a short shot from the source pose (e.g. the
-# combat idle): the shooting arm swings up to point straight ahead, kicks up a few degrees of recoil and
-# settles back. Only that arm moves, so firing a crossbow doesn't throw the whole body around.
+# `"aim": "Right"` (or "Left") on a clip: instead of a library clip, build a short shot from the source pose
+# (e.g. the combat idle): that arm swings up to point straight ahead, kicks up a little recoil and settles.
+# `"aim": "bow"`: a longbow draw: the left arm pushes the bow forward, the right hand draws to the cheek,
+# snaps back on release, then both arms settle. Only the arms move, so firing doesn't throw the body around.
+# Directions are in world space; the character faces -Y with her left on +X.
 from mathutils import Quaternion
-AIM_KEYS = [  # (time s, aim weight, recoil pitch deg)
-    (0.0, 0.0, 0), (0.12, 1.0, 0), (0.3, 1.0, 9), (0.45, 1.0, 0), (0.62, 1.0, 0), (0.85, 0.0, 0)]
+FWD = Vector((0, -1, 0.07))
 
 
-def build_aim(act, side, name):
+TURN = {'Spine02': -8, 'Spine01': -10, 'Spine': -12, 'neck': 14, 'Head': 16}
+BOW_ARM = (FWD + Vector((0.08, 0, 0))).normalized()
+BOW_LOW = Vector((0.08, -1, -0.25)).normalized()
+
+
+def aim_pose(mode, phase, pitch=0, u=0.0):
+    """(bone -> target direction, bone -> turn about world Z in degrees, right-hand target spec) for a phase.
+    The bow's drawing hand is placed by position (two-bone IK) so its path can go around the head."""
+    if mode == 'bow':
+        # A right-handed archer turns side-on: chest rotates right (clockwise from above), head stays on target.
+        if phase == 'nock':  # bow coming up, drawing hand at the string just behind the bow hand
+            return ({'LeftArm': BOW_LOW, 'LeftForeArm': BOW_LOW, 'LeftHand': BOW_LOW},
+                    {k: v * 0.4 for k, v in TURN.items()}, ('nock', 0))
+        if phase == 'path':  # drawing back: u = 0..1 from the string to the jaw anchor
+            d = BOW_LOW.lerp(BOW_ARM, u).normalized()
+            return ({'LeftArm': d, 'LeftForeArm': d, 'LeftHand': d},
+                    {k: v * (0.4 + 0.6 * u) for k, v in TURN.items()}, ('path', u))
+        if phase == 'draw':
+            return ({'LeftArm': BOW_ARM, 'LeftForeArm': BOW_ARM, 'LeftHand': BOW_ARM}, TURN, ('anchor', 0))
+        # release: a small follow-through, the hand slides back a few cm along the jaw toward the ear
+        return ({'LeftArm': BOW_ARM, 'LeftForeArm': BOW_ARM, 'LeftHand': BOW_ARM},
+                {k: v * 1.05 for k, v in TURN.items()}, ('release', 0))
+    d = Vector((0, -1, math.tan(math.radians(4 + pitch))))
+    return {f'{mode}Arm': d, f'{mode}ForeArm': d, f'{mode}Hand': d}, {}, None
+
+
+AIM_KEYS = {  # (time s, weight, phase, recoil pitch deg or path fraction)
+    'pistol': [(0.0, 0, 'aim', 0), (0.12, 1, 'aim', 0), (0.3, 1, 'aim', 9), (0.45, 1, 'aim', 0), (0.62, 1, 'aim', 0), (0.85, 0, 'aim', 0)],
+    # nock -> draw (along a path around the face) -> release lands at ~0.4 of the clip (the skill's impact)
+    'bow': [(0.0, 0, 'nock', 0), (0.14, 1, 'nock', 0)]
+           + [(0.14 + 0.2 * k / 5, 1, 'path', k / 5) for k in range(1, 5)]
+           + [(0.34, 1, 'draw', 0), (0.39, 1, 'release', 0), (0.58, 1, 'release', 0), (0.95, 0, 'release', 0)],
+}
+POLE = Vector((-1, 0.5, -0.35)).normalized()  # drawing elbow points out to the right, back and a bit down
+
+
+def hand_target(spec, head, bow_hand):
+    """World position of the drawing hand. Offsets are in world space (she faces -Y, her right is -X)."""
+    nock = bow_hand + Vector((-0.04, 0.10, 0.02))
+    anchor = head + Vector((-0.08, -0.04, -0.09))  # corner of the jaw, on her right
+    kind, u = spec
+    if kind == 'nock':
+        return nock
+    if kind == 'anchor':
+        return anchor
+    if kind == 'release':
+        return anchor + Vector((-0.03, 0.07, 0.0))
+    # quadratic Bezier bulging out to her right and in front of the face, so the hand never cuts through it
+    ctrl = (nock + anchor) / 2 + Vector((-0.16, -0.08, 0.04))
+    return nock * (1 - u) ** 2 + ctrl * 2 * u * (1 - u) + anchor * u * u
+
+
+def two_bone_ik(S, T, l1, l2, pole):
+    """Elbow position for shoulder S reaching target T with bone lengths l1, l2, elbow bending toward pole."""
+    v = T - S
+    d = max(1e-4, min(v.length, (l1 + l2) * 0.999))
+    n = v.normalized()
+    a = math.acos(max(-1, min(1, (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d))))
+    p = (pole - n * pole.dot(n)).normalized()
+    return S + n * (l1 * math.cos(a)) + p * (l1 * math.sin(a))
+
+
+def build_aim(act, mode, name):
     assign(arm, act)
     sc.frame_set(int(act.frame_range[0]))
     bpy.context.view_layer.update()
     order = sorted(arm.pose.bones, key=lambda pb: len(pb.parent_recursive))
     base = {pb.name: pb.matrix.copy() for pb in order}  # armature-space rest-of-body pose
-    to_arm = arm.matrix_world.to_3x3().inverted()
+    Mw = arm.matrix_world
+    to_arm = Mw.to_3x3().inverted()
+    up_axis = (to_arm @ Vector((0, 0, 1))).normalized()
+    bl = lambda n: (Mw @ arm.data.bones[n].tail_local - Mw @ arm.data.bones[n].head_local).length
     out = bpy.data.actions.new(name)
     out.use_fake_user = True
     assign(arm, out)
-    chain = [f'{side}Arm', f'{side}ForeArm', f'{side}Hand']
-    for t, w, pitch in AIM_KEYS:
-        f = t * FPS
+    prev = {}
+    clearance = []
+
+    def aim_bone(pb, world_dir, w, up=None):
+        m = pb.matrix.copy()
+        tgt = (to_arm @ world_dir.normalized()).normalized()
+        full = m.col[1].xyz.normalized().rotation_difference(tgt)
+        if up is not None:
+            # Also roll about the aimed axis so the bone's Z (the thumb side) points along `up`.
+            z = (full.to_matrix() @ m.to_3x3().normalized()).col[2]
+            upa = to_arm @ up
+            upa = (upa - tgt * upa.dot(tgt)).normalized()
+            z = (z - tgt * z.dot(tgt)).normalized()
+            full = z.rotation_difference(upa) @ full
+        loc, rot, scl = m.decompose()
+        pb.matrix = Matrix.LocRotScale(loc, Quaternion((1, 0, 0, 0)).slerp(full, w) @ rot, scl)
+        bpy.context.view_layer.update()
+
+    for t, w, phase, extra in AIM_KEYS['bow' if mode == 'bow' else 'pistol']:
         for pb in order:
             pb.matrix = base[pb.name]
             bpy.context.view_layer.update()
-        fwd_world = Vector((0, -1, math.tan(math.radians(4 + pitch)))).normalized()  # ahead, slightly up
-        tgt = (to_arm @ fwd_world).normalized()
-        for bn in chain:
-            pb = arm.pose.bones[bn]
-            m = pb.matrix.copy()
-            y = m.col[1].xyz.normalized()
-            dq = Quaternion((1, 0, 0, 0)).slerp(y.rotation_difference(tgt), w)
-            loc, rot, scl = m.decompose()
-            pb.matrix = Matrix.LocRotScale(loc, dq @ rot, scl)
-            bpy.context.view_layer.update()
+        targets, turns, hand_spec = aim_pose(mode, phase, pitch=extra, u=extra)
+        for pb in order:  # pass 1, parents first: torso turns and direction aims
+            if pb.name in turns:
+                m = pb.matrix.copy(); loc, rot, scl = m.decompose()
+                q = Quaternion((1, 0, 0, 0)).slerp(Quaternion(up_axis, math.radians(turns[pb.name])), w)
+                pb.matrix = Matrix.LocRotScale(loc, q @ rot, scl)
+                bpy.context.view_layer.update()
+            elif pb.name in targets:
+                aim_bone(pb, targets[pb.name], w, Vector((0, 0, 1)) if (mode == 'bow' and pb.name == 'LeftHand') else None)
+        if hand_spec:  # pass 2: place the drawing hand by IK
+            P = lambda n: Mw @ arm.pose.bones[n].head
+            T = hand_target(hand_spec, P('Head'), P('LeftHand') + (Mw.to_3x3() @ arm.pose.bones['LeftHand'].y_axis).normalized() * 0.08)
+            S = P('RightArm')
+            E = two_bone_ik(S, T, bl('RightArm'), bl('RightForeArm'), POLE)
+            aim_bone(arm.pose.bones['RightArm'], E - S, w)
+            aim_bone(arm.pose.bones['RightForeArm'], T - E, w)
+            aim_bone(arm.pose.bones['RightHand'], T - E, w)
+            head = P('Head') + Vector((0, 0, 0.09))  # roughly the centre of the skull
+            segs = [(P('RightForeArm'), P('RightHand')), (P('RightHand'), Mw @ arm.pose.bones['RightHand'].tail)]
+            dmin = min(((a + (b - a) * k / 8) - head).length for a, b in segs for k in range(9))
+            clearance.append((t, dmin))
         for pb in order:
             pb.rotation_mode = 'QUATERNION'
-            pb.keyframe_insert('rotation_quaternion', frame=f)
+            q = pb.rotation_quaternion.copy()
+            # q and -q are the same rotation; keep neighbouring keys in the same hemisphere so the
+            # interpolation takes the short way round (otherwise a limb can whip through a full turn).
+            if pb.name in prev and q.dot(prev[pb.name]) < 0:
+                q.negate()
+                pb.rotation_quaternion = q
+            prev[pb.name] = q
+            pb.keyframe_insert('rotation_quaternion', frame=t * FPS)
             if pb.name == 'Hips':
-                pb.keyframe_insert('location', frame=f)
+                pb.keyframe_insert('location', frame=t * FPS)
+    if clearance:
+        print('  arm-to-head clearance (cm): ' + ', '.join(f'{t:.2f}s {d * 100:.0f}' for t, d in clearance))
     return out
 
 
@@ -317,7 +419,7 @@ for cname, spec in cfg['clips'].items():
     bpy.data.actions.remove(canon[i])
     new.name = cname
     canon[i] = new
-    print(f'AIM {cname}: {spec["aim"]} arm, {AIM_KEYS[-1][0]:.2f}s')
+    print(f'AIM {cname}: {spec["aim"]}')
 arm.animation_data.action = None
 
 # ---------------- textures ----------------
@@ -440,11 +542,13 @@ if cfg.get('props'):
                 # sliding to the slimmest section within +-10% of the length (where a hand naturally holds)
                 L = zmax - zmin
                 base = zmin + spec['grip_at'] * L
-                cands = [(r[2], z) for z in [base + L * (i / 40 - 0.1) for i in range(9)] if (r := ring_at(z))]
+                span = 0.1 if spec.get('slide', True) else 0.0  # "slide": false = hold exactly at grip_at
+                cands = [(r[2], z) for z in [base + L * span * (i / 4 - 1) for i in range(9)] if (r := ring_at(z))]
                 grip_z = min(cands)[1] if cands else base
             # Centre the handle on the grip axis *at the grip* (a lopsided head or crossguard would otherwise
             # put the shaft off-centre in the fist), and measure its radius there (the fist is sized to fit).
             cx, cy, radius = ring_at(grip_z) or (0.0, 0.0, 0.015)
+            radius = spec.get('grip_radius', radius)  # override when other parts (a bowstring) share the slice
             o.data.transform(Matrix.Translation((-cx, -cy, 0)))
             info.update(zmin=zmin, guard_z=guard_z, grip_z=grip_z, radius=radius)
         if spec.get('grip') == 'pistol':

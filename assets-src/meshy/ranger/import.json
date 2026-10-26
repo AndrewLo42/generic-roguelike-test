@@ -108,7 +108,7 @@
     },
     "2H_Ranged_Shoot": {
       "src": "Combat_Stance",
-      "aim": "Right"
+      "aim": "bow"
     },
     "1H_Ranged_Shoot": {
       "src": "Combat_Stance",
@@ -165,11 +165,14 @@
   "props": {
     "from": "public/assets/kaykit/characters/Rogue_Hooded.glb",
     "items": {
-      "2H_Crossbow": {
-        "hand": "RightHand",
-        "length": 0.8,
-        "grip": "pistol",
-        "grip_at": 0.2
+      "Longbow": {
+        "file": "assets-src/props/longbow.glb",
+        "hand": "LeftHand",
+        "length": 1.6,
+        "grip": "fist",
+        "grip_at": 0.5,
+        "slide": false,
+        "grip_radius": 0.024
       },
       "Knife": {
         "hand": "RightHand",

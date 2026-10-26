@@ -57,7 +57,7 @@ export const CLASSES: ClassDef[] = [
     utilities: [L.fireTrap, L.frostTrap, L.flare, L.disengage, L.huntersCall],
     utilityKit: [L.fireTrap, L.disengage, L.huntersCall],
     // The Rogue's body repainted as a ranger (render_sheet.py -> Meshy image-to-image -> project_paint.py);
-    // KayKit crossbow and knives as stand-ins.
+    // Procedural longbow (tools/blender/make_longbow.py) and KayKit knives as stand-ins.
     visual: { model: 'Ranger', rig: 'meshy', scale: 1.35, keep: [], idle: 'Idle', move: 'Running_A' },
   },
   {
