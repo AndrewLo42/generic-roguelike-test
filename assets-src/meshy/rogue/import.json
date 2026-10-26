@@ -107,6 +107,18 @@
       "src": "Stand_and_Drink",
       "start": 0,
       "end": 2.5
+    },
+    "2H_Ranged_Shoot": {
+      "src": "Combat_Stance",
+      "aim": "Right"
+    },
+    "1H_Ranged_Shoot": {
+      "src": "Combat_Stance",
+      "aim": "Right"
+    },
+    "1H_Ranged_Shooting": {
+      "src": "Combat_Stance",
+      "aim": "Right"
     }
   },
   "fists": {

@@ -56,7 +56,9 @@ export const CLASSES: ClassDef[] = [
     weapons: weaponsFor('ranger'),
     utilities: [L.fireTrap, L.frostTrap, L.flare, L.disengage, L.huntersCall],
     utilityKit: [L.fireTrap, L.disengage, L.huntersCall],
-    visual: { model: 'Rogue_Hooded', scale: 0.8, keep: [], idle: 'Idle', move: 'Running_A' },
+    // The Rogue's body repainted as a ranger (render_sheet.py -> Meshy image-to-image -> project_paint.py);
+    // KayKit crossbow and knives as stand-ins.
+    visual: { model: 'Ranger', rig: 'meshy', scale: 1.35, keep: [], idle: 'Idle', move: 'Running_A' },
   },
   {
     id: 'mage', name: 'Mage', role: 'Caster', icon: '🔮', color: 0x5a6ee0, css: '#8fa0ff',

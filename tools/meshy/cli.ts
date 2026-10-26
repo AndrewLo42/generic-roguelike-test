@@ -11,6 +11,7 @@
  *   balance                                   credit balance (free)
  *   library [--search run] [--category Fighting]   animation library (free)
  *   concept --asset warrior --prompt "..." [--count 3] [--model nano-banana-pro] [--single [--aspect 9:16]] [--pose none]
+ *   repaint --asset ranger --image render.png --prompt "..." [--model nano-banana-pro] [--aspect 4:3]
  *   model   --asset warrior --images a.png,b.png [--polycount 15000] [--type standard|smart-topology] [--texture "..."] [--pose none]
  *   remesh  --asset warrior --task <model task id> [--polycount 15000] [--height 1.85]
  *   rig     --asset warrior (--task <image-to-3d task id> | --glb <url>) [--height 1.85]
@@ -161,6 +162,26 @@ const commands: Record<string, () => Promise<void>> = {
       for (const [j, u] of urls.entries()) files.push(await download(u, join(dir, 'concepts', `${id.slice(-8)}_${j}.png`)));
       record(dir, { cmd: 'concept', taskId: id, variation: i + 1, request: body, credits: t.consumed_credits, files });
     }
+  },
+
+  /** Edit an existing image (e.g. repaint a character render in a new outfit, same pose). */
+  async repaint() {
+    const dir = assetDir();
+    const image = need('image');
+    if (!existsSync(image)) fail(`no such image: ${image}`);
+    const body = {
+      ai_model: flags.model ?? 'nano-banana-pro',
+      prompt: need('prompt'),
+      reference_image_urls: [dataUri(image)],
+      aspect_ratio: flags.aspect ?? '4:3',
+      ...(flags.cutout ? { remove_background: true } : {}),
+    };
+    confirmSpend('Create an image-to-image task:', body);
+    const id = (await api('POST', '/v1/image-to-image', body)).result;
+    const t = await waitFor('/v1/image-to-image', id);
+    const files: string[] = [];
+    for (const [j, u] of ((t.image_urls as string[]) ?? []).entries()) files.push(await download(u, join(dir, 'concepts', `repaint_${id.slice(-8)}_${j}.png`)));
+    record(dir, { cmd: 'repaint', taskId: id, request: { ...body, reference_image_urls: [basename(image)] }, credits: t.consumed_credits, files });
   },
 
   /** 3D model from 1–4 images of the same subject (front/side/back views). */

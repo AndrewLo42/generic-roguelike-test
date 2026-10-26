@@ -266,6 +266,60 @@ if cfg.get('selfrig'):
     arm, mesh = tgt, tgt_mesh
     print(f'RETARGET {len(canon)} clips onto {cfg["selfrig"]}')
 
+# ---------------- procedural aim clips ----------------
+# `"aim": "Right"` on a clip: instead of a library clip, build a short shot from the source pose (e.g. the
+# combat idle): the shooting arm swings up to point straight ahead, kicks up a few degrees of recoil and
+# settles back. Only that arm moves, so firing a crossbow doesn't throw the whole body around.
+from mathutils import Quaternion
+AIM_KEYS = [  # (time s, aim weight, recoil pitch deg)
+    (0.0, 0.0, 0), (0.12, 1.0, 0), (0.3, 1.0, 9), (0.45, 1.0, 0), (0.62, 1.0, 0), (0.85, 0.0, 0)]
+
+
+def build_aim(act, side, name):
+    assign(arm, act)
+    sc.frame_set(int(act.frame_range[0]))
+    bpy.context.view_layer.update()
+    order = sorted(arm.pose.bones, key=lambda pb: len(pb.parent_recursive))
+    base = {pb.name: pb.matrix.copy() for pb in order}  # armature-space rest-of-body pose
+    to_arm = arm.matrix_world.to_3x3().inverted()
+    out = bpy.data.actions.new(name)
+    out.use_fake_user = True
+    assign(arm, out)
+    chain = [f'{side}Arm', f'{side}ForeArm', f'{side}Hand']
+    for t, w, pitch in AIM_KEYS:
+        f = t * FPS
+        for pb in order:
+            pb.matrix = base[pb.name]
+            bpy.context.view_layer.update()
+        fwd_world = Vector((0, -1, math.tan(math.radians(4 + pitch)))).normalized()  # ahead, slightly up
+        tgt = (to_arm @ fwd_world).normalized()
+        for bn in chain:
+            pb = arm.pose.bones[bn]
+            m = pb.matrix.copy()
+            y = m.col[1].xyz.normalized()
+            dq = Quaternion((1, 0, 0, 0)).slerp(y.rotation_difference(tgt), w)
+            loc, rot, scl = m.decompose()
+            pb.matrix = Matrix.LocRotScale(loc, dq @ rot, scl)
+            bpy.context.view_layer.update()
+        for pb in order:
+            pb.rotation_mode = 'QUATERNION'
+            pb.keyframe_insert('rotation_quaternion', frame=f)
+            if pb.name == 'Hips':
+                pb.keyframe_insert('location', frame=f)
+    return out
+
+
+for cname, spec in cfg['clips'].items():
+    if not spec.get('aim'):
+        continue
+    i = next(k for k, a in enumerate(canon) if a.name == cname)
+    new = build_aim(canon[i], spec['aim'], cname + '_aim')
+    bpy.data.actions.remove(canon[i])
+    new.name = cname
+    canon[i] = new
+    print(f'AIM {cname}: {spec["aim"]} arm, {AIM_KEYS[-1][0]:.2f}s')
+arm.animation_data.action = None
+
 # ---------------- textures ----------------
 for img in bpy.data.images:
     n = img.name.lower()
@@ -394,15 +448,19 @@ if cfg.get('props'):
             o.data.transform(Matrix.Translation((-cx, -cy, 0)))
             info.update(zmin=zmin, guard_z=guard_z, grip_z=grip_z, radius=radius)
         if spec.get('grip') == 'pistol':
-            # Hand crossbows / pistols: the front is the widest slice (the bow); put it at +Z.
+            # Hand crossbows / pistols: the front is the end nearer the bow (the widest slice); put it at +Z.
+            # Width is measured across each slice (max - min), not from the origin: props' pivots are off-centre.
             vs = [v.co for v in o.data.vertices]
             zmin, zmax = min(v.z for v in vs), max(v.z for v in vs)
-            slices = {}
+            lo_x, hi_x = {}, {}
             for v in vs:
-                b = round((v.z - zmin) / (zmax - zmin) * 20)
-                slices[b] = max(slices.get(b, 0), abs(v.x))
-            if max(slices, key=slices.get) < 10:
+                b = min(19, int((v.z - zmin) / (zmax - zmin) * 20))
+                lo_x[b] = min(lo_x.get(b, 1e9), v.x); hi_x[b] = max(hi_x.get(b, -1e9), v.x)
+            widest = max(lo_x, key=lambda b: hi_x[b] - lo_x[b])
+            front_up = spec.get('front', 'auto')
+            if (front_up == 'auto' and widest < 10) or front_up == 'flip':
                 o.data.transform(Matrix.Rotation(math.pi, 4, 'X'))
+            print(f'  {pname}: bow at {(widest + 0.5) / 20:.2f} of its length from the {"low" if widest < 10 else "high"} end')
             vs = [v.co for v in o.data.vertices]
             info['zmin'], info['zmax'] = min(v.z for v in vs), max(v.z for v in vs)
             info['ymin'] = min(v.y for v in vs)
