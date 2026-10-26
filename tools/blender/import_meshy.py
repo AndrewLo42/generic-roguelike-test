@@ -336,7 +336,7 @@ if cfg.get('props'):
             vs = [v.co for v in o.data.vertices]
             return Vector((max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)))
         ext = extents()
-        if spec.get('grip') in ('fist', 'shield', 'palm'):
+        if spec.get('grip') in ('fist', 'shield', 'palm', 'pistol'):
             order = sorted(range(3), key=lambda i: ext[i])  # thinnest .. longest
             ax_z, ax_x = order[2], order[1]
             ax_y = 3 - ax_z - ax_x
@@ -393,6 +393,19 @@ if cfg.get('props'):
             cx, cy, radius = ring_at(grip_z) or (0.0, 0.0, 0.015)
             o.data.transform(Matrix.Translation((-cx, -cy, 0)))
             info.update(zmin=zmin, guard_z=guard_z, grip_z=grip_z, radius=radius)
+        if spec.get('grip') == 'pistol':
+            # Hand crossbows / pistols: the front is the widest slice (the bow); put it at +Z.
+            vs = [v.co for v in o.data.vertices]
+            zmin, zmax = min(v.z for v in vs), max(v.z for v in vs)
+            slices = {}
+            for v in vs:
+                b = round((v.z - zmin) / (zmax - zmin) * 20)
+                slices[b] = max(slices.get(b, 0), abs(v.x))
+            if max(slices, key=slices.get) < 10:
+                o.data.transform(Matrix.Rotation(math.pi, 4, 'X'))
+            vs = [v.co for v in o.data.vertices]
+            info['zmin'], info['zmax'] = min(v.z for v in vs), max(v.z for v in vs)
+            info['ymin'] = min(v.y for v in vs)
         prepared.append((pname, spec, o, info))
     for o in imported:
         bpy.data.objects.remove(o, do_unlink=True)
@@ -498,6 +511,19 @@ for pname, spec, o, info in prepared:
         twist = Euler([math.radians(x) for x in spec.get('rot', (0, 0, 0))]).to_matrix().to_4x4()
         o.matrix_world = H @ Matrix.Translation(fists[spec['hand']]) @ Rb @ twist @ Matrix.Translation((0, 0, -info['grip_z']))
         print(f"  grip {pname}: pommel {info['zmin']:.3f} guard {info['guard_z']:.3f} -> grip centre z {info['grip_z']:.3f}, handle radius {info['radius'] * 100:.1f} cm")
+    elif spec.get('grip') == 'pistol':
+        # Held like a pistol: stock along the knuckle direction (+Y, past the fist), bow horizontal across the
+        # palm normal (X), resting on the thumb side of the fist (+Z). `grip_at`: fraction from the butt that
+        # sits over the fist (default 0.25).
+        Rb = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))  # prop X->X, Y->Z(up), Z->Y(fwd)
+        if Rb.determinant() < 0:
+            Rb = Matrix(((-1, 0, 0, 0), (0, 0, 1, 0), (0, 1, 0, 0), (0, 0, 0, 1)))
+        L = info['zmax'] - info['zmin']
+        at = info['zmin'] + spec.get('grip_at', 0.25) * L
+        twist = Euler([math.radians(x) for x in spec.get('rot', (0, 0, 0))]).to_matrix().to_4x4()
+        lift = Matrix.Translation(Vector((0, 0, spec.get('lift', 0.03))))  # sit on top of the fist
+        o.matrix_world = H @ Matrix.Translation(fists[spec['hand']]) @ lift @ twist @ Rb @ Matrix.Translation((0, -info['ymin'], -at))
+        print(f"  grip {pname}: pistol grip, stock over the fist at {spec.get('grip_at', 0.25):.2f} of its length")
     elif spec.get('grip') == 'palm':
         # Flat prop resting on the open palm (e.g. an open book): thinnest axis along the palm normal,
         # longest across the hand (bone Z), centred on the palm a little past the wrist.

@@ -80,7 +80,8 @@ export const CLASSES: ClassDef[] = [
       desc: '+30% damage from behind; attacks from Stealth deal +50% more (Ambush).',
       apply: (s) => { s.backstabBonus += 0.3; s.ambushBonus += 0.5; },
     },
-    visual: { model: 'Rogue', scale: 0.8, keep: [], idle: 'Idle', move: 'Running_A' },
+    // Our Meshy-made hooded thief (assets-src/meshy/rogue), self-rigged; KayKit knives and hand crossbow as stand-ins.
+    visual: { model: 'Thief', rig: 'meshy', scale: 1.35, keep: [], idle: 'Idle', move: 'Running_A' },
   },
 ];
 
