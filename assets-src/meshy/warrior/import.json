@@ -17,6 +17,25 @@
     "Idle": {
       "src": "Combat_Stance"
     },
+    "2H_Melee_Idle": {
+      "src": "Combat_Stance",
+      "two_hand": {
+        "along": -0.14,
+        "guard": {
+          "pos": [
+            -0.08,
+            -0.45,
+            0.12
+          ],
+          "pitch": 60,
+          "elbow": [
+            -1,
+            0.1,
+            -0.6
+          ]
+        }
+      }
+    },
     "Running_A": {
       "src": "running"
     },
@@ -60,23 +79,38 @@
       "src": "dying_backwards"
     },
     "2H_Melee_Attack_Slice": {
-      "src": "Charged_Slash"
+      "src": "Charged_Slash",
+      "two_hand": {
+        "along": -0.14
+      }
     },
     "2H_Melee_Attack_Chop": {
       "src": "Charged_Axe_Chop",
       "start": 3.0,
-      "end": 5.4
+      "end": 5.4,
+      "two_hand": {
+        "along": -0.14
+      }
     },
     "2H_Melee_Attack_Spin": {
-      "src": "Axe_Spin_Attack"
+      "src": "Axe_Spin_Attack",
+      "two_hand": {
+        "along": -0.14
+      }
     },
     "Leap_Attack": {
       "src": "Basic_Jump",
       "start": 1.0,
-      "end": 3.2
+      "end": 3.2,
+      "two_hand": {
+        "along": -0.14
+      }
     },
     "Charge": {
-      "src": "Standard_Forward_Charge"
+      "src": "Standard_Forward_Charge",
+      "two_hand": {
+        "along": -0.14
+      }
     },
     "1H_Melee_Attack_Slice_Diagonal": {
       "src": "Double_Combo_Attack",

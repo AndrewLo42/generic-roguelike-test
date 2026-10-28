@@ -662,6 +662,128 @@ for hand, spec in ({} if cfg.get('selfrig') else (cfg.get('fists') or {})).items
     fists[hand] = palm * axis_s + Vector((0, y0, z_c))
     print(f'FIST {hand}: curled {len(fingers)} verts, grip centre {tuple(round(x, 3) for x in fists[hand])}')
 
+# ---------------- two-handed grips ----------------
+# `"two_hand": {"along": -0.13}` on a clip: every frame, the left hand is placed on the right hand's weapon
+# handle, `along` metres from the right fist along the handle (negative = toward the pommel), by two-bone IK.
+# The left hand takes the right hand's orientation: for two hands on one handle the knuckles face the same
+# way and (with the mirrored hand rigs) the palms wrap from opposite sides, like a bat grip.
+two_hand = [(n, spec['two_hand']) for n, spec in cfg['clips'].items() if spec.get('two_hand')]
+if two_hand:
+    Mw = arm.matrix_world
+    to_arm = Mw.to_3x3().inverted()
+    lenL = lambda n: (Mw @ arm.data.bones[n].tail_local - Mw @ arm.data.bones[n].head_local).length
+    l1, l2 = lenL('LeftArm'), lenL('LeftForeArm')
+    POLE_L = Vector((1, 0.3, -0.6)).normalized()  # left elbow out to her left and down
+    POLE_R = Vector((-1, 0.3, -0.6)).normalized()
+    lR1, lR2 = lenL('RightArm'), lenL('RightForeArm')
+    for cname, th in two_hand:
+        act = next(a for a in canon if a.name == cname)
+        assign(arm, act)
+        f0, f1 = (int(round(x)) for x in act.frame_range)
+        prev, worst = {}, 0.0
+        for f in range(f0, f1 + 1):
+            sc.frame_set(f)
+            bpy.context.view_layer.update()
+            def left_wrist():
+                R = arm.pose.bones['RightHand']
+                t, rq, _ = (Mw @ R.matrix).decompose()
+                target = Matrix.LocRotScale(t, rq, None) @ (fists['RightHand'] + Vector((0, 0, th.get('along', -0.13))))
+                # Left wrist so the left fist's grip centre lands on the target with the right hand's rotation.
+                return target - rq.to_matrix() @ fists['LeftHand'], rq, t
+            if th.get('guard', {}).get('square', True) and 'guard' in th:
+                # Square up first: borrowed stances (e.g. a fencer's combat stance) turn the hips and chest
+                # ~50 degrees to the side and shift them off-centre. Turn the hips back to face forward (-Y)
+                # and re-centre them, so a guard placed "in front" really is in front of the chest.
+                hp = arm.pose.bones['Hips']
+                sp = arm.pose.bones['Spine']
+                rest_q = (Mw @ arm.data.bones['Spine'].matrix_local).to_quaternion()
+                cur_q = (Mw @ sp.matrix).to_quaternion()
+                fwd = (cur_q @ rest_q.inverted()) @ Vector((0, -1, 0))
+                yaw = math.atan2(-fwd.x, -fwd.y)
+                hm = hp.matrix.copy(); loc, rot, scl = hm.decompose()
+                q = Quaternion((to_arm @ Vector((0, 0, 1))).normalized(), yaw)
+                rest_head = arm.data.bones['Hips'].head_local
+                loc = Vector((rest_head.x, rest_head.y, loc.z))
+                hp.matrix = Matrix.LocRotScale(loc, q @ rot, scl)
+                bpy.context.view_layer.update()
+                hp.rotation_mode = 'QUATERNION'
+                hp.keyframe_insert('rotation_quaternion', frame=f)
+                hp.keyframe_insert('location', frame=f)
+            if 'guard' in th:
+                # Guard pose (idles): the right fist goes to `pos` (metres from the hips, world axes; she/he
+                # faces -Y) with the blade pitched `pitch` degrees up from horizontal-forward, knuckles forward.
+                g = th['guard']
+                hips = Mw @ arm.pose.bones['Hips'].head
+                grip = hips + Vector(g.get('pos', (0.0, -0.3, 0.05)))
+                pitch = math.radians(g.get('pitch', 60))
+                Z = Vector((0, -math.cos(pitch), math.sin(pitch)))          # blade
+                Yk = Vector((0, -1, 0)); Yk = (Yk - Z * Yk.dot(Z)).normalized()  # knuckles, forward
+                X = Yk.cross(Z)
+                rq_g = Matrix((X, Yk, Z)).transposed().to_quaternion()
+                rw = grip - rq_g.to_matrix() @ fists['RightHand']
+                SR = Mw @ arm.pose.bones['RightArm'].head
+                pole = Vector(g.get('elbow', (-1, 0.15, -0.55))).normalized()  # right elbow: out to the side
+                ER = two_bone_ik(SR, rw, lR1, lR2, pole)
+                for bn, d in (('RightArm', ER - SR), ('RightForeArm', rw - ER)):
+                    pb = arm.pose.bones[bn]
+                    m = pb.matrix.copy(); loc, rot, scl = m.decompose()
+                    dq = m.col[1].xyz.normalized().rotation_difference((to_arm @ d).normalized())
+                    pb.matrix = Matrix.LocRotScale(loc, dq @ rot, scl)
+                    bpy.context.view_layer.update()
+                Rb = arm.pose.bones['RightHand']
+                rm = Rb.matrix.copy()
+                Rb.matrix = Matrix.LocRotScale(rm.to_translation(), to_arm.to_quaternion() @ rq_g, rm.to_scale())
+                bpy.context.view_layer.update()
+            S = Mw @ arm.pose.bones['LeftArm'].head
+            wrist, rq, rwrist = left_wrist()
+            excess = (wrist - S).length - (l1 + l2) * 0.97
+            if excess > 0:
+                # One-handed source clips hold the weapon out to the side: pull the whole grip toward the left
+                # shoulder by the shortfall (re-solving the right arm, keeping the right hand's rotation so the
+                # blade angle is unchanged), so both hands can hold it.
+                shift = (S - wrist).normalized() * excess
+                SR = Mw @ arm.pose.bones['RightArm'].head
+                new_rw = rwrist + shift
+                ER = two_bone_ik(SR, new_rw, lR1, lR2, POLE_R)
+                for bn, d in (('RightArm', ER - SR), ('RightForeArm', new_rw - ER)):
+                    pb = arm.pose.bones[bn]
+                    m = pb.matrix.copy(); loc, rot, scl = m.decompose()
+                    dq = m.col[1].xyz.normalized().rotation_difference((to_arm @ d).normalized())
+                    pb.matrix = Matrix.LocRotScale(loc, dq @ rot, scl)
+                    bpy.context.view_layer.update()
+                Rb = arm.pose.bones['RightHand']
+                rm = Rb.matrix.copy()
+                Rb.matrix = Matrix.LocRotScale(rm.to_translation(), to_arm.to_quaternion() @ rq, rm.to_scale())
+                bpy.context.view_layer.update()
+                wrist, rq, _ = left_wrist()
+            E = two_bone_ik(S, wrist, l1, l2, POLE_L)
+            reach = (wrist - S).length - (l1 + l2)
+            worst = max(worst, reach)
+            for bn, d in (('LeftArm', E - S), ('LeftForeArm', wrist - E)):
+                pb = arm.pose.bones[bn]
+                m = pb.matrix.copy(); loc, rot, scl = m.decompose()
+                dq = m.col[1].xyz.normalized().rotation_difference((to_arm @ d).normalized())
+                pb.matrix = Matrix.LocRotScale(loc, dq @ rot, scl)
+                bpy.context.view_layer.update()
+            L = arm.pose.bones['LeftHand']
+            lm = L.matrix.copy()
+            L.matrix = Matrix.LocRotScale(lm.to_translation(), (to_arm.to_quaternion() @ rq), lm.to_scale())
+            bpy.context.view_layer.update()
+            for bn in ('RightArm', 'RightForeArm', 'RightHand', 'LeftArm', 'LeftForeArm', 'LeftHand'):
+                pb = arm.pose.bones[bn]
+                pb.rotation_mode = 'QUATERNION'
+                q = pb.rotation_quaternion.copy()
+                if bn in prev and q.dot(prev[bn]) < 0:
+                    q.negate(); pb.rotation_quaternion = q
+                prev[bn] = q
+                pb.keyframe_insert('rotation_quaternion', frame=f)
+        print(f'TWO-HAND {cname}: left hand on the handle {th.get("along", -0.13):+.2f} m from the right fist'
+              + (f', short of reach by up to {worst * 100:.0f} cm' if worst > 0.005 else ''))
+    arm.animation_data.action = None
+    for pb in arm.pose.bones:
+        pb.matrix_basis = Matrix.Identity(4)
+    bpy.context.view_layer.update()
+
 # ---------------- props, pass 2: attach ----------------
 for pname, spec, o, info in prepared:
     # Meshy rigs are in centimetres (armature scale 0.01), so place in world space from the hand
