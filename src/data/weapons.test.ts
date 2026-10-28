@@ -1,42 +1,51 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../core/rng';
-import { CLASSES, kitKinds, poolFor, resolveLoadout } from './classes';
+import { CLASSES, UTILITY_SLOTS, WEAPON_SLOTS, kitKinds, resolveUtilities, resolveWeaponSkills } from './classes';
 import { generateGear, makeStarterWeapon } from './items';
 import { CLASS_WEAPONS, weaponFor } from './weapons';
 import { createCombatWorld } from '../combat/world';
 
 describe('weapons', () => {
-  it('every class has at least two weapons with a full, valid default kit', () => {
+  it('every class has two+ weapons with a full kit of their own skills, and a utility kit', () => {
     for (const c of CLASSES) {
       expect(c.weapons.length).toBeGreaterThanOrEqual(2);
       for (const w of c.weapons) {
-        expect(w.kit).toHaveLength(5);
-        const pool = poolFor(c, w).map((s) => s.id);
-        for (const s of w.kit) expect(pool).toContain(s.id);
-        expect(new Set(w.kit.map((s) => s.id)).size).toBe(5); // no duplicates
+        expect(w.kit).toHaveLength(WEAPON_SLOTS);
+        for (const s of w.kit) expect(w.skills).toContain(s);
+        expect(new Set(w.kit).size).toBe(WEAPON_SLOTS);
       }
+      expect(c.utilityKit).toHaveLength(UTILITY_SLOTS);
+      for (const s of c.utilityKit) expect(c.utilities).toContain(s);
     }
   });
 
-  it('weapon skills are exclusive to their weapon; utilities are shared', () => {
+  it('weapon skills are exclusive to their weapon and never utilities', () => {
     for (const c of CLASSES) {
       const [a, b] = c.weapons;
-      const aIds = new Set(a.skills.map((s) => s.id));
-      for (const s of b.skills) expect(aIds.has(s.id)).toBe(false);
-      for (const u of c.utilities) {
-        expect(poolFor(c, a)).toContain(u);
-        expect(poolFor(c, b)).toContain(u);
-      }
+      for (const s of b.skills) expect(a.skills).not.toContain(s);
+      for (const w of c.weapons) for (const s of w.skills) expect(c.utilities).not.toContain(s);
     }
   });
 
-  it('loadouts resolve per weapon: other-weapon skills fall back to that weapon’s default', () => {
+  it('saved weapon loadouts resolve per weapon; invalid or duplicate ids fall back without duplicates', () => {
     const warrior = CLASSES.find((c) => c.id === 'warrior')!;
     const [gs, sns] = warrior.weapons;
-    // A greatsword loadout applied to sword & shield: Cleave isn't allowed, Warhorn (utility) is.
-    const ids = ['cleave', 'savageLeap', 'whirl', 'flameBrand', 'warhorn'];
-    expect(resolveLoadout(warrior, gs, ids).map((s) => s.id)).toEqual(ids);
-    expect(resolveLoadout(warrior, sns, ids).map((s) => s.id)).toEqual(['swordSlash', 'lunge', 'shieldBash', 'flameBrand', 'warhorn']);
+    const ids = ['heavyStrike', 'whirl', 'cleave', 'savageLeap', 'earthshaker'];
+    expect(resolveWeaponSkills(gs, ids).map((s) => s.id)).toEqual(ids);
+    // Old-style saves mixed utilities into slots 1–5; greatsword ids are invalid for sword & shield.
+    const old = ['cleave', 'savageLeap', 'whirl', 'flameBrand', 'warhorn'];
+    expect(resolveWeaponSkills(gs, old).map((s) => s.id)).toEqual(['cleave', 'savageLeap', 'whirl', 'earthshaker', 'chargingStrike']);
+    expect(resolveWeaponSkills(sns, old)).toEqual(sns.kit);
+    const dup = resolveWeaponSkills(gs, ['whirl', 'whirl', 'whirl']);
+    expect(new Set(dup.map((s) => s.id)).size).toBe(WEAPON_SLOTS);
+    expect(dup[0].id).toBe('whirl');
+  });
+
+  it('utility loadouts resolve against the class utilities', () => {
+    const rogue = CLASSES.find((c) => c.id === 'rogue')!;
+    expect(resolveUtilities(rogue, ['adrenaline', 'fanOfKnives', 'vanish']).map((s) => s.id)).toEqual(['adrenaline', 'fanOfKnives', 'vanish']);
+    expect(resolveUtilities(rogue, ['twinStrikes'])).toEqual(rogue.utilityKit); // weapon skill: not allowed
+    expect(resolveUtilities(rogue)).toEqual(rogue.utilityKit);
   });
 
   it('dropped weapons roll a weapon type of the class, named after it', () => {
@@ -60,16 +69,16 @@ describe('weapons', () => {
     expect(s.slot).toBe('weapon');
   });
 
-  it('boon filtering follows the equipped weapon', () => {
+  it('boon filtering follows the held weapon sets', () => {
     const warrior = CLASSES.find((c) => c.id === 'warrior')!;
-    expect(kitKinds(warrior).has('projectile')).toBe(false); // greatsword
-    expect(kitKinds(warrior, warrior.weapons[1]).has('projectile')).toBe(true); // shield throw
+    expect(kitKinds(warrior).has('projectile')).toBe(false); // greatsword only
+    expect(kitKinds(warrior, warrior.weapons).has('projectile')).toBe(true); // + shield throw
   });
 
-  it('every new weapon kit can be loaded into a combat world', () => {
+  it('a full bar (5 weapon + 3 utility) loads into a combat world', () => {
     for (const c of CLASSES) for (const w of c.weapons) {
-      const world = createCombatWorld(100, 100, w.kit);
-      expect(world.kit).toHaveLength(5);
+      const world = createCombatWorld(100, 100, [...w.kit, ...c.utilityKit]);
+      expect(world.kit).toHaveLength(WEAPON_SLOTS + UTILITY_SLOTS);
     }
   });
 });

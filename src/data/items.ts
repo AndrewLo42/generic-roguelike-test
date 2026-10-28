@@ -38,9 +38,14 @@ export interface PotionItem {
 
 export type Item = GearItem | PotionItem;
 
+/** Equipment slots: every item slot, plus `weapon2` — the inactive weapon set (no stats until swapped in). */
+export type EquipSlot = ItemSlot | 'weapon2';
+
+/** Slots whose gear counts toward stats (and that drops roll for). */
 export const SLOTS: ItemSlot[] = ['weapon', 'head', 'chest', 'boots', 'trinket'];
-export const SLOT_LABEL: Record<ItemSlot, string> = { weapon: 'Weapon', head: 'Head', chest: 'Chest', boots: 'Boots', trinket: 'Trinket' };
-export const SLOT_ICON: Record<ItemSlot, string> = { weapon: '⚔', head: '⛑', chest: '🦺', boots: '👢', trinket: '💍' };
+export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'weapon2', 'head', 'chest', 'boots', 'trinket'];
+export const SLOT_LABEL: Record<EquipSlot, string> = { weapon: 'Weapon', weapon2: 'Swap weapon', head: 'Head', chest: 'Chest', boots: 'Boots', trinket: 'Trinket' };
+export const SLOT_ICON: Record<EquipSlot, string> = { weapon: '⚔', weapon2: '⇄', head: '⛑', chest: '🦺', boots: '👢', trinket: '💍' };
 
 export const ITEM_RARITY_COLOR: Record<ItemRarity, string> = {
   common: '#c8c8c8', magic: '#4fa3ff', rare: '#ffd24a', epic: '#c77dff',

@@ -8,7 +8,7 @@ npm run dev        # http://localhost:5173  (?seed=42 fixed layout, ?class=warri
 npm test           # generator determinism / connectivity tests
 ```
 
-**Controls:** W/S move · A/D strafe · Q/E turn (strafe while holding RMB) · Space jump · V/Shift dodge (costs 50 endurance, i-frames) · H potion · F open chest · P inventory / K skills / T traits (pauses) · 1–5 skills (hold 1 to auto-attack) · Tab / left-click target, C nearest enemy, Esc clear · hold RMB to steer camera · wheel zoom · R restart run (same class) · blue portal = next floor (seed + 1, +30% HP). Tuning lives in the collapsed *Debug* panel.
+**Controls:** W/S move · A/D strafe · Q/E turn (strafe while holding RMB) · Space jump · V/Shift dodge (costs 50 endurance, i-frames) · H potion · F open chest · P inventory / K skills / T traits (pauses) · 1–5 weapon skills (hold 1 to auto-attack) · 6–8 utilities · ` / X swap weapons · Tab / left-click target, C nearest enemy, Esc clear · hold RMB to steer camera · wheel zoom · R restart run (same class) · blue portal = next floor (seed + 1, +30% HP). Hover any skill-bar slot for a live tooltip (stats after your bonuses, effects, combo role, recharge time). Tuning lives in the collapsed *Debug* panel.
 
 **Classes** (picked from the start menu, and again after each death):
 
@@ -19,13 +19,16 @@ npm test           # generator determinism / connectivity tests
 | Rogue (assassin, +8% speed) | 210 | Twin Strikes (poison) · Backstab (+60% from behind) · Shadowstep (teleport behind + 1s Stealth) · Smoke Bomb (smoke field, blinds) · Death Blossom (poison whirl) |
 | Mage (caster) | 170 | Arcane Bolt · Flame Burst (fast small AoE) · Meteor (big slow AoE, fire field) · Frost Nova (blast + ice field) · Blink (teleport forward) |
 
-**Weapons (GW2-style):** each class has weapon types, and the equipped weapon decides your *weapon skills*; *utility skills* belong to the class and work with any weapon. Every run starts with a statless starter of each type (the last one you used is equipped, the rest are in the bag), so swapping is always one click in the inventory (P). Dropped weapons roll any of your class's types, and their tooltip shows the skills they bring. Loadouts are remembered per class **and** weapon. Defined in `src/data/weapons.ts`.
+**Weapons (GW2-style):** each class has weapon types. The skill bar is split: slots **1–5** hold the active weapon's skills, slots **6–8** hold class *utility* skills, which work with any weapon and stay put when you swap.
+- **Weapon swap:** you carry two weapon sets (inventory: *Weapon* + *Swap weapon*). Press **`** or **X** to swap (5s cooldown; the button left of slot 1 shows the other weapon). Only the active weapon's stats count. Skills you swap away keep cooling down and come back with the remaining time, so swapping can't reset cooldowns (`src/game/cooldowns.ts`).
+- **Gear:** every run starts with a statless starter of each type in your saved sets. Click a weapon in the bag to equip it as active, shift-click to equip it as the swap weapon. Drops roll any of your class's types; tooltips show their skills.
+- **Saved between runs:** your two weapon sets, each weapon's 1–5 loadout (editable for any class weapon from the Skills tab's weapon tabs, even unequipped ones), and your 6–8 utilities. Defined in `src/data/weapons.ts`.
 
 | Class | Weapon | Weapon skills | Utilities (any weapon) |
 |---|---|---|---|
 | Warrior | Greatsword | Cleave, Heavy Strike, Savage Leap, Rush, Whirling Strike, Earthshaker | Flame Brand, Battle Standard, Warhorn |
 | | **Sword & Shield** | Sword Slash (Vulnerability), Lunge (leap, Chill), Shield Bash (blast, Blind), Shield Throw (projectile), Shield Stance (Protection + Regen) | |
-| Ranger | Crossbow | Long Shot, Quick Shot, Volley, Barrage, Point Blank Shot | Fire Trap, Frost Trap, Sun Flare, Disengage, Hunter's Call |
+| Ranger | Longbow | Long Shot, Quick Shot, Volley, Barrage, Point Blank Shot | Fire Trap, Frost Trap, Sun Flare, Disengage, Hunter's Call |
 | | **Hunting Knives** | Hunting Slash, Pounce (leap, Vulnerability), Crosscut (whirl), Throw Knives (Chill), Predator's Strike (+30% from behind) | |
 | Mage | Staff | Arcane Bolt, Ice Shard, Flame Burst, Meteor, Arcane Well, Sunfire | Frost Nova, Arcane Blast, Blink |
 | | **Wand & Tome** | Wand Bolt (fast), Arcane Missiles, Withering Hex, Searing Ray (Burning line), Tome of Warding (Light field) | |
@@ -34,7 +37,7 @@ npm test           # generator determinism / connectivity tests
 
 There are no dedicated healing skills. Sustain comes from **Regeneration** (2.5% max HP/s) on several skills — Warhorn, Battle Standard, Hunter's Call, Disengage, Frost Nova, Blink, Sunfire — plus lifesteal, light-field combos and scarce **potions (H)**.
 
-**Skill loadouts (K):** your pool is the equipped weapon's skills plus the class utilities; in the pause menu's **Skills** tab click a slot, then any skill to put it there (fully free — any skill in any slot; picking one already slotted swaps them). Loadouts are remembered per class and weapon.
+**Skill loadouts (K):** in the pause menu's **Skills** tab pick a weapon tab, click a slot, then a skill: weapon skills go in 1–5, utilities in 6–8 (picking one already slotted swaps them). Remembered per class and weapon.
 
 **Combos (GW2 fields + finishers):** some skills leave an elemental **field** (🔥 fire, ❄ ice, ☀ light, ✦ arcane) that also pulses a small effect each second; others are **finishers** (➹ projectile, 💥 blast, ⤴ leap, 🌀 whirl). Shoot through a field or use a finisher inside one to trigger a combo — e.g. Meteor's fire field + Frost Nova (blast) = Fire Blast (Might); Fire Trap + Volley = burning arrows; Battle Standard (light) + Whirling Strike = Healing Whirl. The Skills tab has the full 4×4 combo table with the ones your current loadout can do highlighted. A skill never combos with its own field. Data: `src/data/combos.ts`; effects: `triggerCombo` in `src/systems/combat.ts`.
 
@@ -84,8 +87,21 @@ Rule of thumb: simulation/generation code stays free of Three.js so it's testabl
 7. ⬜ Electron shell + packaging
 8. ⬜ Later: open terrain zones (noise heightmap chunks, same spawner API)
 
+## Our own art (Meshy pipeline)
+The Warrior (with his weapons), the Mage and the Rogue are original assets made with Meshy, and the Ranger is the Rogue's body repainted (below); the dungeon is still KayKit. Style brief: [docs/art-bible.md](docs/art-bible.md) (GW2-inspired painterly look, described in our own words; never feed other games' art into generation).
+
+1. **Generate** with `npm run meshy -- <command>` ([tools/meshy/cli.ts](tools/meshy/cli.ts)): `concept` (text-to-image), `model` (image-to-3D, auto-remeshed to a polycount), `remesh`, `rig`, `animate` (library clips, 3 credits each), `library --search` and `balance` (free). Needs `MESHY_API_KEY` in `.env.local` (gitignored). Anything that spends credits is a dry run without `--yes`. Every task is logged to `assets-src/meshy/<asset>/manifest.json`.
+   *No-credit placeholder:* `Blender -b --python tools/blender/concept_to_mesh.py -- FRONT.png BACK.png OUT.glb` inflates the concept's silhouette into a mesh and projects the front/back paintings onto it (the Rogue's first placeholder). Convincing from the front, back and the game camera; thin from the pure side, with hoods and belts painted on. Swap in an image-to-3D model later.
+   *Simple props by script:* `tools/blender/make_longbow.py` models the Ranger's longbow (stave, grip wrap, bronze nocks, string) in the same style.
+   *Repaint an existing body* (how the Ranger was made, 9 credits): `render_sheet.py` renders a rigged character's front | back sheet, `npm run meshy -- repaint` redraws it in a new outfit (same pose, via Meshy image-to-image), and `project_paint.py` projects the result back onto the same mesh, keeping its rig. Real 3D depth for a new character; the silhouette is the base body's.
+2. **Rig** it ourselves (no Meshy rig needed): `Blender -b --python tools/blender/auto_rig.py -- MODEL.glb OUT_selfrig.glb [--ref MESHY_RIGGED.glb]`. Finds joints from the A-pose mesh (cross-sections, arm axis, hand frame), builds a Meshy-named skeleton plus 3-joint fingers, skins via a watertight voxel proxy (bone heat fails on overlapping AI shells), weights hand vertices to the nearest finger bone, and handles robes (legs straight under the robe, leg weights blended across the centre so the hem swings as one piece).
+3. **Build** the game file: `Blender -b --python tools/blender/import_meshy.py -- assets-src/meshy/<asset>/import.json [--preview DIR]`. The config maps Meshy library clips to our canonical names (trim / reverse / mirror / hold a pose), **retargets** them from the rig they were bought on onto our skeleton (`selfrig`), keys finger poses (fists, or an open hand per hand), and attaches props with automatic grips: `fist` (handle through the fist; blade, or a staff's wide `head`, out of the thumb side; `grip_at` for staffs and wands), `shield` (grip bar in the fist, face outward), `palm` (flat props like an open book) and `pistol` (hand crossbows: stock over the fist, bow forward). Clips can also be generated: `"aim": "Right"` (a calm pistol shot) or `"aim": "bow"` (longbow draw and release), so firing only moves the arms. Clips bought once are reused across characters: the Mage runs on the Warrior's 22 clips. Outputs: `public/assets/meshy/Warrior.glb`, `BattleMage.glb`, `Thief.glb`, `Ranger.glb`.
+4. **Rig profiles** ([src/render/rigs.ts](src/render/rigs.ts)) let KayKit and Meshy skeletons share all gameplay data: bone masks for upper-body casts, clip aliases, and per-clip impact timing. `src/render/rigs.test.ts` checks every class's skills, dodges and weapon props resolve on its actual model.
+
+Raw Meshy downloads (`assets-src/**/*.glb`, ~130 MB) are gitignored; concepts, manifests and the import config are kept. Meshy's download links expire, so keep a local backup of `assets-src/` if you may need to rebuild.
+
 ## Assets (all CC0 unless noted — record everything in `public/assets/CREDITS.md`)
-**In use:** KayKit Adventurers (Knight = Warrior, Rogue_Hooded = Ranger, Mage), Skeletons (Minion = Skeleton, Warrior = Bone Brute, Mage = Hexer) and Dungeon Remastered, in `public/assets/kaykit/` (~28 MB, uncompressed). How they're wired:
+**In use:** KayKit Adventurers (no longer as characters: the Knight, Mage, Rogue and Rogue_Hooded files supply skeleton weapons and our characters' stand-in weapons), Skeletons (Minion = Skeleton, Warrior = Bone Brute, Mage = Hexer) and Dungeon Remastered, in `public/assets/kaykit/` (~28 MB, uncompressed). How they're wired:
 - Which model/weapon/animations each class, enemy and skill uses is data: `visual` in `classes.ts` / `enemies.ts`, `anim` in `skills.ts`. Both packs share one rig, so skeletons borrow weapons from the adventurer files (attached to `handslotr`).
 - Skill animations are sped up so the clip's impact frame lands when the cast resolves; enemy attack swings likewise connect when their telegraph fills. While moving, casts play on the upper body only and the legs keep running.
 - Dungeon walls are laid along floor edges (paired into 4-wide pieces), with pillars at inner corners and a pool of 6 torch lights that follow the player. Everything static is instanced.

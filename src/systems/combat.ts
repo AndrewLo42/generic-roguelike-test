@@ -19,7 +19,8 @@ export function cooldownOf(skill: SkillDef, p: PlayerState) {
   return cd;
 }
 
-const SKILL_KEYS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'];
+/** 1–5 weapon skills, 6–8 utilities. */
+const SKILL_KEYS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];
 const TARGET_MAX_RANGE = 30;
 const SOFT_TARGET_RANGE = 22;
 const SOFT_TARGET_CONE = (55 * Math.PI) / 180;

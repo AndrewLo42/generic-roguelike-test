@@ -28,9 +28,9 @@ function addEnemy(w: CombatWorld, x: number, z: number) {
   return e;
 }
 
-describe('every weapon skill works in the combat sim', () => {
-  for (const cls of CLASSES) for (const weapon of cls.weapons) for (const skill of weapon.skills) {
-    it(`${cls.id} · ${weapon.id} · ${skill.id}`, () => {
+describe('every weapon and utility skill works in the combat sim', () => {
+  for (const cls of CLASSES) for (const [group, skill] of [...cls.weapons.flatMap((w) => w.skills.map((s) => [w.id, s] as const)), ...cls.utilities.map((s) => ['utility', s] as const)]) {
+    it(`${cls.id} · ${group} · ${skill.id}`, () => {
       const stats = computeStats({}, cls);
       const p = createPlayer(c.x, c.z, stats);
       p.facing = 0;

@@ -21,7 +21,7 @@ CLASSES.forEach((c, i) => {
     `<div class="meta">${c.baseHp} HP${c.moveSpeedMul !== 1 ? ` · +${Math.round((c.moveSpeedMul - 1) * 100)}% speed` : ''}</div>` +
     (c.passive ? `<div class="meta" title="${c.passive.desc}"><b>${c.passive.name}:</b> ${c.passive.desc}</div>` : '') +
     `<div class="meta">Weapons: ${c.weapons.map((w) => `${w.icon} ${w.name}`).join(' · ')}</div>` +
-    `<div class="kit">${c.weapons[0].kit.map((s) => `<span title="${s.name}" style="color:${s.color}">${s.icon}</span>`).join('')}</div>`;
+    `<div class="kit">${[...c.weapons[0].kit, ...c.utilityKit].map((s) => `<span title="${s.name}" style="color:${s.color}">${s.icon}</span>`).join('')}</div>`;
   card.addEventListener('click', () => chooseClass(i));
   cardsEl.appendChild(card);
 });

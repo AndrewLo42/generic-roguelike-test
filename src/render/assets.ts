@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import type { ModelVisual } from '../data/classes';
+import { rigOf } from './rigs';
 
 /**
  * KayKit asset registry. Everything is loaded once up front; if a file fails to load the game
@@ -9,8 +10,13 @@ import type { ModelVisual } from '../data/classes';
  */
 
 const BASE = `${import.meta.env.BASE_URL}assets/kaykit/`;
+/** Our own characters (Meshy pipeline: tools/meshy + tools/blender/import_meshy.py). */
+const MESHY = `${import.meta.env.BASE_URL}assets/meshy/`;
 
 export const CHARACTER_MODELS = ['Knight', 'Rogue_Hooded', 'Rogue', 'Mage', 'Skeleton_Minion', 'Skeleton_Warrior', 'Skeleton_Mage'];
+// Rigged by tools/blender/auto_rig.py (our skeleton, with fingers) and built by import_meshy.py.
+// Named so they don't collide with KayKit files of the same name (the Hexer borrows KayKit Mage's staff).
+export const MESHY_MODELS = ['Warrior', 'BattleMage', 'Thief', 'Ranger'];
 export const DUNGEON_PIECES = [
   'floor_tile_small', 'floor_tile_small_broken_A', 'floor_tile_small_decorated',
   'wall', 'torch_mounted', 'chest', 'chest_gold', 'pillar', 'barrel_small', 'crates_stacked',
@@ -23,6 +29,7 @@ export async function loadAssets(onProgress?: (done: number, total: number) => v
   const loader = new GLTFLoader();
   const jobs: [string, string, 'char' | 'piece'][] = [
     ...CHARACTER_MODELS.map((n) => [n, `${BASE}characters/${n}.glb`, 'char'] as [string, string, 'char']),
+    ...MESHY_MODELS.map((n) => [n, `${MESHY}${n}.glb`, 'char'] as [string, string, 'char']),
     ...DUNGEON_PIECES.map((n) => [n, `${BASE}dungeon/${n}.glb`, 'piece'] as [string, string, 'piece']),
   ];
   let done = 0;
@@ -43,10 +50,14 @@ export async function loadAssets(onProgress?: (done: number, total: number) => v
 
 export const hasCharacter = (name: string) => characters.has(name);
 
-/** Props parented to hand slots are optional loadout pieces: show only the ones named in `keep`. */
-export function showHandProps(root: THREE.Object3D, keep: string[]) {
+/**
+ * Props parented to hand slots / hand bones are optional loadout pieces: show only the ones named
+ * in `keep`. Which parents count depends on the rig (KayKit `handslot.*`, Meshy `Left/RightHand`).
+ */
+export function showHandProps(root: THREE.Object3D, keep: string[], rig: ModelVisual['rig'] = 'kaykit') {
+  const parent = rigOf(rig).propParent;
   root.traverse((o) => {
-    if (o.parent?.name.startsWith('handslot')) o.visible = keep.includes(o.name);
+    if ((o as THREE.Mesh).isMesh && o.parent && parent.test(o.parent.name)) o.visible = keep.includes(o.name);
   });
 }
 export const getPiece = (name: string) => pieces.get(name);
@@ -89,7 +100,7 @@ export function instantiateCharacter(visual: ModelVisual): { root: THREE.Object3
     if (!mat) { mat = src.clone(); matCache.set(src, mat); materials.push(mat); }
     m.material = mat;
   });
-  showHandProps(root, visual.keep);
+  showHandProps(root, visual.keep, visual.rig);
 
   if (visual.weapon) {
     const src = characters.get(visual.weapon.from)?.scene.getObjectByName(visual.weapon.mesh) as THREE.Mesh | undefined;

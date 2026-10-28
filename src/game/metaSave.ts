@@ -6,10 +6,12 @@ export interface MetaSave {
   shards: number;
   ranks: MetaRanks;
   stats: { runs: number; bestFloor: number; totalKills: number; totalShards: number };
-  /** Per class + weapon ("warrior:greatsword"): chosen skill ids for slots 1–5. */
+  /** Per class + weapon ("warrior:greatsword"): chosen weapon skill ids for slots 1–5. */
   loadouts?: Record<string, string[]>;
-  /** Per class: weapon type equipped at the start of the next run (the last one used). */
-  weapons?: Record<string, string>;
+  /** Per class: chosen utility skill ids for slots 6–8. */
+  utilities?: Record<string, string[]>;
+  /** Per class: weapon types in [active set, swap set] — restored at the start of the next run. */
+  weaponSets?: Record<string, string[]>;
   /** Per class: chosen trait id per tier. */
   traits?: Record<string, (string | null)[]>;
 }

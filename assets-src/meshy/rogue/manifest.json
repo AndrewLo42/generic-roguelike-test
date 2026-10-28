@@ -1,0 +1,43 @@
+[
+  {
+    "at": "2026-10-26T18:52:38.932Z",
+    "cmd": "concept",
+    "taskId": "01a1798e-5443-7169-b95b-953beaf5a22c",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A lean, athletic human rogue in her late twenties, fitted charcoal leather armor with layered plum cloth panels, a deep hood worn up over short dark hair, a dark cloth mask covering the lower face, sharp eyes, a short asymmetric capelet over one shoulder, crossed belts with small pouches and empty sheaths at the hips and thighs, fitted leather trousers and soft knee-high boots with straps, fingerless leather gloves and bracers with dark bronze trim, poised and watchful. stylized realistic fantasy MMO character, hand-painted painterly textures, heroic proportions, ornate layered armor with sculpted plates and raised gold trim, soft painted highlights, rich but slightly desaturated colors with a saturated accent color, high detail game character concept. full-body character turnaround sheet, front view, side view and back view, standing in a relaxed A-pose, arms away from the body, empty hands, no weapons, plain light grey background, even soft studio lighting, no cast shadows, entire figure visible head to toe. Avoid: chibi, cartoon, toy, anime, photorealism, weapons, props, cropped feet, text, logos.",
+      "pose_mode": "a-pose",
+      "generate_multi_view": true
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/rogue/concepts/eaf5a22c_0.png",
+      "assets-src/meshy/rogue/concepts/eaf5a22c_1.png",
+      "assets-src/meshy/rogue/concepts/eaf5a22c_2.png"
+    ]
+  },
+  {
+    "at": "2026-10-26T21:01:53.711Z",
+    "cmd": "model",
+    "taskId": "01a17a02-fdda-72bd-b1e4-0194c9ae7dbe",
+    "request": {
+      "image_urls": [
+        "eaf5a22c_1.png",
+        "eaf5a22c_0.png"
+      ],
+      "model_type": "standard",
+      "should_remesh": true,
+      "target_polycount": 15000,
+      "pose_mode": "a-pose",
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/rogue/model_c9ae7dbe.glb"
+    ]
+  }
+]

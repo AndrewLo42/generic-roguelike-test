@@ -10,23 +10,29 @@ import { castFacing, handleCombatInput, updateCombat } from './systems/combat';
 import { createCombatWorld, type CombatWorld } from './combat/world';
 import { maxHpOf, type PlayerStats } from './combat/stats';
 import { type BoonStacks, computeStats, rollOffers } from './data/boons';
-import { CLASSES, type ClassDef, classById, kitKinds, loadoutKey, resolveLoadout, weaponFor } from './data/classes';
+import {
+  CLASSES, type ClassDef, classById, kitKinds, loadoutKey, resolveUtilities, resolveWeaponSkills, weaponFor,
+} from './data/classes';
+import type { SkillDef } from './data/skills';
 import type { WeaponDef } from './data/weapons';
 import type { TraitPicks } from './data/traits';
-import { ITEM_RARITY_COLOR, POTION_HEAL_PCT, type ItemSlot, makeStarterWeapon } from './data/items';
-import { type Inventory, addItem, consumePotion, createInventory, discard, equipFromBag, equippedGear, potionCount, unequip } from './game/inventory';
+import { type EquipSlot, ITEM_RARITY_COLOR, POTION_HEAL_PCT, makeStarterWeapon } from './data/items';
+import {
+  type Inventory, addItem, consumePotion, createInventory, discard, equipFromBag, equippedGear, potionCount, swapWeaponSets, unequip,
+} from './game/inventory';
 import { type LootContext, createLootContext, nearestClosedChest, openChest, rollKillDrops, spawnChests, updatePickups } from './systems/loot';
 import { CombatView } from './render/combatView';
 import { LootView } from './render/lootView';
 import { PlayerView } from './render/playerView';
 import { TorchLights } from './render/torchLights';
 import { loadAssets } from './render/assets';
-import { buildSkillBar, pushFeed, setPrompt, showBanner, updateBuffs, updateHud, updatePotionSlot } from './ui/hud';
+import { buildSkillBar, pushFeed, setPrompt, showBanner, updateBuffs, updateHud, updatePotionSlot, updateSwapSlot } from './ui/hud';
 import { choose, closeRewards, isRewardOpen, openRewards, renderOwnedBoons } from './ui/rewards';
 import { chooseClass, isClassSelectOpen, openClassSelect } from './ui/classSelect';
 import { type PauseTab, closePause, isPauseOpen, openPause, renderPause, setPauseTab } from './ui/inventoryMenu';
 import { closeUpgrades, continueFromSummary, isSummaryOpen, isUpgradesOpen, renderClassMeta, showRunSummary } from './ui/metaMenu';
 import { type RunSummary, rankOf, shardsForRun } from './data/meta';
+import { carryCooldowns } from './game/cooldowns';
 import { type MetaSave, emptySave, loadMeta, recordRun, saveMeta } from './game/metaSave';
 
 // ---------- Renderer / scene ----------
@@ -85,16 +91,24 @@ const meta: MetaSave = loadMeta();
 let stats: PlayerStats = computeStats(boons, cls, [], meta.ranks);
 let lootCtx: LootContext;
 const persistMeta = () => saveMeta(meta);
-/** The equipped weapon's type decides the weapon skills; no weapon equipped = the class's primary weapon. */
+/** The active weapon's type decides the weapon skills; no weapon equipped = the class's primary weapon. */
 const currentWeapon = (): WeaponDef => weaponFor(cls.id, inv.equipped.weapon?.weaponType);
+/** The other weapon set, if one is equipped. */
+const swapWeapon = (): WeaponDef | null => (inv.equipped.weapon2 ? weaponFor(cls.id, inv.equipped.weapon2.weaponType) : null);
 let weapon: WeaponDef = currentWeapon();
-/**
- * Saved skill loadout (slots 1–5) per class + weapon, and trait picks per class — remembered between runs.
- * Loadouts saved before weapons existed (keyed by class only) still apply to the primary weapon.
- */
-const loadoutFor = (c: ClassDef, w: WeaponDef) =>
-  resolveLoadout(c, w, meta.loadouts?.[loadoutKey(c, w)] ?? (w === c.weapons[0] ? meta.loadouts?.[c.id] : undefined));
+/** Saved weapon skills (slots 1–5) per class + weapon, utilities (6–8) and traits per class — remembered between runs. */
+const weaponSkillsFor = (c: ClassDef, w: WeaponDef) => resolveWeaponSkills(w, meta.loadouts?.[loadoutKey(c, w)]);
+const utilitiesFor = (c: ClassDef) => resolveUtilities(c, meta.utilities?.[c.id]);
+/** The full skill bar: active weapon's skills, then utilities. */
+const kitFor = (c: ClassDef, w: WeaponDef): SkillDef[] => [...weaponSkillsFor(c, w), ...utilitiesFor(c)];
 const traitsFor = (c: ClassDef): TraitPicks => meta.traits?.[c.id] ?? [];
+/** Weapon sets in hand, for boon filtering (boons fit either set). */
+const heldWeapons = () => [weapon, swapWeapon()].filter((w): w is WeaponDef => !!w);
+// Weapon swap: short cooldown; skills that leave the bar keep cooling down (runTime-stamped) so swapping can't reset them.
+const SWAP_COOLDOWN = 5;
+let swapCd = 0;
+let runTime = 0;
+const cdStash = new Map<string, number>(); // skill id -> runTime when ready
 let run: RunSummary = { classId: cls.id, floor: 1, kills: 0, bruteKills: 0, chests: 0, goldChests: 0 };
 let revivesLeft = 0;
 let potionCd = 0;
@@ -126,22 +140,26 @@ function startRun(seed: number, c: ClassDef = cls) {
   boons = {};
   run = { classId: cls.id, floor: 1, kills: 0, bruteKills: 0, chests: 0, goldChests: 0 };
   inv = createInventory(2 + rankOf(meta.ranks, 'provisions'));
-  // One statless starter per weapon type: the last-used one equipped, the rest in the bag.
-  const lastWeapon = weaponFor(cls.id, meta.weapons?.[cls.id]);
+  // One statless starter per weapon type: the saved sets equipped (active + swap), any others in the bag.
+  const saved = meta.weaponSets?.[cls.id] ?? [];
+  const active = weaponFor(cls.id, saved[0]);
+  const second = cls.weapons.find((w) => w.id === saved[1] && w !== active) ?? cls.weapons.find((w) => w !== active);
   for (const w of cls.weapons) {
     const item = makeStarterWeapon(cls.id, w.id);
-    if (w === lastWeapon) inv.equipped.weapon = item;
+    if (w === active) inv.equipped.weapon = item;
+    else if (w === second) inv.equipped.weapon2 = item;
     else addItem(inv, item);
   }
   weapon = currentWeapon();
+  swapCd = 0;
   revivesLeft = rankOf(meta.ranks, 'undying');
   potionCd = 0;
   // Blessing: start with random boons that fit the class.
-  const blessed = rollOffers(seed * 17 + 5, {}, rankOf(meta.ranks, 'blessing'), kitKinds(cls, weapon));
+  const blessed = rollOffers(seed * 17 + 5, {}, rankOf(meta.ranks, 'blessing'), kitKinds(cls, heldWeapons()));
   for (const b of blessed) boons[b.id] = 1;
   stats = computeStats(boons, cls, equippedGear(inv), meta.ranks, traitsFor(cls));
   playerView.setClass(cls, weapon);
-  buildSkillBar(loadoutFor(cls, weapon));
+  buildSkillBar(kitFor(cls, weapon), weapon.name);
   renderOwnedBoons(boons);
   closeRewards();
   loadFloor(seed, maxHpOf(stats));
@@ -171,7 +189,7 @@ function endRun(reason: 'died' | 'abandoned') {
 /** Portal reached: pause and draft a boon, then descend. Clearing the floor earns a 4th choice. */
 function enterRewards() {
   const cleared = combat.enemies.length === 0;
-  const offers = rollOffers(dungeon.seed * 131 + 17, boons, cleared ? 4 : 3, kitKinds(cls, weapon));
+  const offers = rollOffers(dungeon.seed * 131 + 17, boons, cleared ? 4 : 3, kitKinds(cls, heldWeapons()));
   const descend = () => {
     const newMax = maxHpOf(stats);
     floor++;
@@ -204,7 +222,8 @@ function loadFloor(seed: number, hp: number) {
   const [sx, sy] = roomCenter(dungeon.rooms[dungeon.startRoom]);
   const spawn = tileToWorld(sx, sy);
   player = createPlayer(spawn.x, spawn.z, stats);
-  combat = createCombatWorld(hp, maxHpOf(stats), loadoutFor(cls, weapon));
+  combat = createCombatWorld(hp, maxHpOf(stats), kitFor(cls, weapon));
+  cdStash.clear(); // every floor starts with fresh cooldowns
   combat.revives = revivesLeft;
   spawnEnemies(combat, dungeon, floor);
   spawnChests(combat, dungeon, floor);
@@ -262,14 +281,20 @@ gui.close();
 // ---------- Pause / inventory ----------
 function openInventory(tab: PauseTab = 'inventory') {
   openPause(
-    () => ({ inv, stats, cls, weapon, hp: combat.hp, maxHp: combat.maxHp, floor, loadout: combat.kit, traits: traitsFor(cls) }),
+    () => ({
+      inv, stats, cls, weapon, swapWeapon: swapWeapon(), swapCd, hp: combat.hp, maxHp: combat.maxHp, floor,
+      weaponLoadout: (w: WeaponDef) => weaponSkillsFor(cls, w), utilities: utilitiesFor(cls), traits: traitsFor(cls),
+    }),
     {
-      setSlot: (slot, skillId) => {
-        const ids = combat.kit.map((k) => k.id);
-        const already = ids.indexOf(skillId);
-        if (already >= 0) ids[already] = ids[slot]; // swap
-        ids[slot] = skillId;
-        meta.loadouts = { ...meta.loadouts, [loadoutKey(cls, weapon)]: ids };
+      // Loadouts can be edited for any of the class's weapons, not just the active one.
+      setWeaponSlot: (w, slot, skillId) => {
+        meta.loadouts = { ...meta.loadouts, [loadoutKey(cls, w)]: placeSkill(weaponSkillsFor(cls, w), slot, skillId) };
+        persistMeta();
+        applyLoadout();
+        renderPause();
+      },
+      setUtilitySlot: (slot, skillId) => {
+        meta.utilities = { ...meta.utilities, [cls.id]: placeSkill(utilitiesFor(cls), slot, skillId) };
         persistMeta();
         applyLoadout();
         renderPause();
@@ -282,8 +307,9 @@ function openInventory(tab: PauseTab = 'inventory') {
         refreshStats();
         renderPause();
       },
-      equip: (i) => { if (equipFromBag(inv, i)) { refreshStats(); syncWeapon(); renderPause(); } },
-      unequip: (slot: ItemSlot) => {
+      equip: (i, toSwapSet) => { if (equipFromBag(inv, i, toSwapSet)) { refreshStats(); syncWeapon(); renderPause(); } },
+      swapSets: () => { swapSets(); renderPause(); },
+      unequip: (slot: EquipSlot) => {
         if (unequip(inv, slot)) { refreshStats(); syncWeapon(); renderPause(); }
         else pushFeed('<span style="color:#ff6b5e">Bag is full</span>');
       },
@@ -296,26 +322,49 @@ function openInventory(tab: PauseTab = 'inventory') {
   );
 }
 
-/** After gear changes: if the weapon type changed, swap weapon skills, held props and the remembered weapon. */
-function syncWeapon() {
+/** Put a skill in a slot of a loadout group; if it's already slotted there, the two swap. Returns ids to save. */
+function placeSkill(group: SkillDef[], slot: number, skillId: string): string[] {
+  const ids = group.map((s) => s.id);
+  const already = ids.indexOf(skillId);
+  if (already >= 0) ids[already] = ids[slot];
+  ids[slot] = skillId;
+  return ids;
+}
+
+/** Weapon swap (` / X, or the button in the inventory). */
+function swapSets() {
+  if (combat.dead) return;
+  if (!inv.equipped.weapon2) { combat.error = { text: 'No swap weapon equipped (shift-click a weapon in the bag)', t: 1.5 }; return; }
+  if (swapCd > 0) { combat.error = { text: 'Weapon swap is recharging', t: 1 }; return; }
+  swapWeaponSets(inv);
+  swapCd = SWAP_COOLDOWN;
+  refreshStats();
+  syncWeapon(false);
+}
+
+/** After gear changes or a swap: update weapon skills and held props, and remember the weapon sets. */
+function syncWeapon(announce = true) {
+  const sets = [inv.equipped.weapon?.weaponType ?? weapon.id, inv.equipped.weapon2?.weaponType].filter((id): id is string => !!id);
+  if (sets.join() !== meta.weaponSets?.[cls.id]?.join()) {
+    meta.weaponSets = { ...meta.weaponSets, [cls.id]: sets };
+    persistMeta();
+  }
   const next = currentWeapon();
   if (next === weapon) return;
   weapon = next;
-  meta.weapons = { ...meta.weapons, [cls.id]: weapon.id };
-  persistMeta();
   playerView.setWeapon(weapon);
   applyLoadout();
-  pushFeed(`${weapon.icon} Now wielding <b>${weapon.name}</b> — weapon skills changed`);
+  if (announce) pushFeed(`${weapon.icon} Now wielding <b>${weapon.name}</b> — weapon skills changed`);
 }
 
-/** Swap the live kit to the saved loadout; slots that keep the same skill keep their cooldown. */
+/** Swap the live kit to the saved loadout (cooldowns carry over, see carryCooldowns). */
 function applyLoadout() {
-  const next = loadoutFor(cls, weapon);
-  combat.cooldowns = next.map((s, i) => (combat.kit[i]?.id === s.id ? combat.cooldowns[i] : 0));
+  const next = kitFor(cls, weapon);
+  combat.cooldowns = carryCooldowns(combat.kit, combat.cooldowns, next, cdStash, runTime);
   if (combat.cast && combat.kit[combat.cast.slot]?.id !== next[combat.cast.slot]?.id) combat.cast = null;
   combat.queued = null;
   combat.kit = next;
-  buildSkillBar(next);
+  buildSkillBar(next, weapon.name);
 }
 
 function drinkPotion() {
@@ -379,6 +428,9 @@ function tick(dt: number) {
   }
 
   const keyTurning = tpCam.handleInput(input, dt);
+  runTime += dt;
+  swapCd = Math.max(0, swapCd - dt);
+  if (input.wasPressed('Backquote') || input.wasPressed('KeyX')) swapSets();
 
   if (combat.dead) {
     player.prevX = player.x;
@@ -474,6 +526,7 @@ function frame(now: number) {
   combatView.updateOverlay(combat, dt);
   updateHud(player, combat, cls, dungeon.seed, floor, fps, renderer.info.render.calls);
   updatePotionSlot(potionCount(inv), potionCd, POTION_COOLDOWN);
+  updateSwapSlot(swapWeapon(), swapCd, SWAP_COOLDOWN);
   updateBuffs(combat);
   requestAnimationFrame(frame);
 }

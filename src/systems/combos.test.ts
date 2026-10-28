@@ -18,7 +18,7 @@ function setup(traits: (string | null)[] = []) {
   const cls = CLASSES[0];
   const stats = computeStats({}, cls, [], {}, traits);
   const p = createPlayer(c.x, c.z, stats);
-  const w = createCombatWorld(100, 200, cls.weapons[0].kit);
+  const w = createCombatWorld(100, 200, [L.cleave, L.savageLeap, L.whirl, L.flameBrand, L.warhorn]);
   return { p, w };
 }
 

@@ -1,0 +1,44 @@
+[
+  {
+    "at": "2026-10-14T01:54:50.619Z",
+    "cmd": "concept",
+    "taskId": "01a1381d-f291-7638-a754-5190685aeeda",
+    "variation": 1,
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "A human battle mage in his fifties, long flowing deep-blue robes that reach the floor and completely hide the legs, layered with a silver-trimmed violet tabard and crossed leather sashes, high stiff collar, short layered cape over the shoulders, wide bell sleeves ending at the wrists, leather gloves, silver arcane rune embroidery, neatly trimmed grey beard, hood down, calm and stern. stylized realistic fantasy MMO character, hand-painted painterly textures, heroic proportions, ornate layered armor with sculpted plates and raised gold trim, soft painted highlights, rich but slightly desaturated colors with a saturated accent color, high detail game character concept. full-body character turnaround sheet, front view, side view and back view, standing in a relaxed A-pose, arms away from the body, empty hands, no weapons, plain light grey background, even soft studio lighting, no cast shadows, entire figure visible head to toe. Avoid: chibi, cartoon, toy, anime, photorealism, weapons, props, cropped feet, text, logos.",
+      "pose_mode": "a-pose",
+      "generate_multi_view": true
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/mage/concepts/685aeeda_0.png",
+      "assets-src/meshy/mage/concepts/685aeeda_1.png",
+      "assets-src/meshy/mage/concepts/685aeeda_2.png"
+    ]
+  },
+  {
+    "at": "2026-10-14T01:58:02.399Z",
+    "cmd": "model",
+    "taskId": "01a1381e-c59c-751c-ad68-0b91b62e53c5",
+    "request": {
+      "image_urls": [
+        "685aeeda_0.png",
+        "685aeeda_2.png",
+        "685aeeda_1.png"
+      ],
+      "model_type": "standard",
+      "should_remesh": true,
+      "target_polycount": 15000,
+      "pose_mode": "a-pose",
+      "should_texture": true,
+      "enable_pbr": false,
+      "texture_resolution": "2k",
+      "origin_at": "bottom"
+    },
+    "credits": 30,
+    "files": [
+      "assets-src/meshy/mage/model_b62e53c5.glb"
+    ]
+  }
+]

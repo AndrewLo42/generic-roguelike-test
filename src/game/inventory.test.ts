@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../core/rng';
 import { BASE_STATS } from '../combat/stats';
 import { applyGear, generateGear, makePotion, MAX_POTION_STACK } from '../data/items';
-import { BAG_SIZE, addItem, consumePotion, createInventory, equipFromBag, potionCount, unequip } from './inventory';
+import { BAG_SIZE, addItem, consumePotion, createInventory, equipFromBag, equippedGear, potionCount, swapWeaponSets, unequip } from './inventory';
 
 const rng = () => new Rng(123);
 
@@ -80,5 +80,29 @@ describe('items', () => {
     expect(s.armor).toBe(20);
     expect(s.bonusMaxHp).toBe(30);
     expect(s.damageMul).toBeCloseTo(1.1);
+  });
+});
+
+describe('weapon sets', () => {
+  it('shift-equip fills the swap set; swapping exchanges sets; the swap weapon gives no stats', () => {
+    const inv = createInventory(0);
+    const a = generateGear(rng(), 1, 'warrior', 'rare', 'weapon');
+    const b = generateGear(new Rng(5), 1, 'warrior', 'magic', 'weapon');
+    addItem(inv, a);
+    addItem(inv, b);
+    expect(equipFromBag(inv, 0)).toBe(true);
+    expect(equipFromBag(inv, 1, true)).toBe(true);
+    expect(inv.equipped.weapon).toBe(a);
+    expect(inv.equipped.weapon2).toBe(b);
+    expect(equippedGear(inv)).toEqual([a]);
+    expect(swapWeaponSets(inv)).toBe(true);
+    expect(inv.equipped.weapon).toBe(b);
+    expect(inv.equipped.weapon2).toBe(a);
+    expect(equippedGear(inv)).toEqual([b]);
+  });
+
+  it('cannot swap without a swap weapon', () => {
+    const inv = createInventory(0);
+    expect(swapWeaponSets(inv)).toBe(false);
   });
 });

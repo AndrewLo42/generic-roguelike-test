@@ -1,0 +1,19 @@
+[
+  {
+    "at": "2026-10-26T21:21:44.791Z",
+    "cmd": "repaint",
+    "taskId": "01a17a16-e6dd-77ef-b741-c67dd6ac21d9",
+    "request": {
+      "ai_model": "nano-banana-pro",
+      "prompt": "Repaint this exact character sheet (front view left, back view right) as a forest ranger. Keep EXACTLY the same pose, body, silhouette, outline, proportions, framing, camera and plain light grey background; only change the colors and painted surface details. Outfit: forest-green hooded cloak and capelet in the same shapes, weathered brown leather armor and bracers with dark bronze trim, moss-green tunic panels instead of plum, the face uncovered (no mask) with a calm weathered expression, a leather quiver strap across the chest, brown leather trousers and boots. Hand-painted painterly stylized realistic fantasy MMO style, soft painted highlights, slightly desaturated earthy greens and browns. No weapons, no text.",
+      "reference_image_urls": [
+        "base_rogue_sheet.png"
+      ],
+      "aspect_ratio": "4:3"
+    },
+    "credits": 9,
+    "files": [
+      "assets-src/meshy/ranger/concepts/repaint_d6ac21d9_0.png"
+    ]
+  }
+]
